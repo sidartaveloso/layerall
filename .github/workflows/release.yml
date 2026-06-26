@@ -1,16 +1,9 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'packages/core/**'
-      - 'packages/sdk/**'
-      - 'packages/cli/**'
-      - '.github/workflows/release.yml'
-      - '.releaserc.json'
   workflow_dispatch:
+  # Releases are currently published manually via `npm publish` until an
+  # NPM_TOKEN secret is configured; see docs/tutorials/allgeo.md.
 
 permissions:
   contents: write
