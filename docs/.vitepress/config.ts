@@ -1,9 +1,14 @@
 import { defineConfig } from 'vitepress';
 
+// On GitHub Pages, the site is served from https://<user>.github.io/<repo>/
+// and must be built with `base: "/<repo>/"`. Locally we fall back to "/".
+const base = process.env.VITEPRESS_BASE_PATH ?? '/';
+
 export default defineConfig({
   title: 'LayerAll',
   description: 'Um SDK. N provedores. Uma engine de orquestração.',
   lang: 'pt-BR',
+  base,
   lastUpdated: true,
   cleanUrls: true,
   themeConfig: {
