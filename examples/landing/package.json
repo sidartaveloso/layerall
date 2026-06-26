@@ -1,0 +1,16 @@
+{
+  "name": "landing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "White-label landing/demo HTML template for LayerAll",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist .vitepress/dist"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

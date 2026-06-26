@@ -1,0 +1,70 @@
+{
+  "name": "@layerall/plugin-prometheus",
+  "version": "0.1.0",
+  "description": "Prometheus observer for LayerAll Router — ready-to-use metrics via prom-client",
+  "keywords": [
+    "prometheus",
+    "metrics",
+    "observability",
+    "layerall",
+    "prom-client",
+    "orchestration"
+  ],
+  "author": "Sidarta Veloso <sidartaveloso@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sidartaveloso/layerall.git",
+    "directory": "packages/plugin-prometheus"
+  },
+  "bugs": {
+    "url": "https://github.com/sidartaveloso/layerall/issues"
+  },
+  "homepage": "https://github.com/sidartaveloso/layerall#readme",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:no-coverage": "vitest run",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "@layerall/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "prom-client": "^15.0.0"
+  },
+  "peerDependenciesMeta": {
+    "prom-client": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^2.1.0",
+    "prom-client": "^15.1.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

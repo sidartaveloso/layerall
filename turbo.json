@@ -1,0 +1,25 @@
+{
+  "$schema": "https://v2-9-6.turborepo.dev/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".vitepress/dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "test": {
+      "dependsOn": ["build", "^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.ts", "test/**/*.ts", "tests/**/*.ts"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

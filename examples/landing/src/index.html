@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Template Agnóstico — Camada de Abstração/Orquestração (SDK)</title>
+  <meta name="description" content="Template agnóstico para produtos de orquestração/abstração de APIs/SDKs: roteamento, fallback, observabilidade, SDK simples e integrações." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial'] },
+          boxShadow: {
+            glow: '0 0 0 1px rgba(255,255,255,0.06), 0 18px 60px rgba(0,0,0,0.55)',
+            soft: '0 10px 30px rgba(0,0,0,0.35)'
+          },
+          keyframes: {
+            floaty: { '0%,100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-10px)' } },
+            shimmer: { '0%': { backgroundPosition: '0% 50%' }, '100%': { backgroundPosition: '100% 50%' } }
+          },
+          animation: {
+            floaty: 'floaty 6s ease-in-out infinite',
+            shimmer: 'shimmer 9s ease-in-out infinite'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{
+      --bg0:#070A12;
+      --bg1:#0B1020;
+      --card: rgba(255,255,255,0.06);
+      --card2: rgba(255,255,255,0.08);
+      --stroke: rgba(255,255,255,0.10);
+      --stroke2: rgba(255,255,255,0.14);
+      --txt: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.68);
+      --muted2: rgba(255,255,255,0.55);
+      --accentA:#7C3AED;
+      --accentB:#22D3EE;
+      --accentC:#34D399;
+      --danger:#FB7185;
+      --warn:#FBBF24;
+    }
+    html,body{height:100%;}
+    body{
+      color:var(--txt);
+      background:
+        radial-gradient(1200px 700px at 15% 15%, rgba(124,58,237,0.28), transparent 55%),
+        radial-gradient(1000px 600px at 80% 30%, rgba(34,211,238,0.20), transparent 55%),
+        radial-gradient(900px 600px at 55% 85%, rgba(52,211,153,0.16), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x:hidden;
+    }
+    .glass{
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.05));
+      border: 1px solid var(--stroke);
+      box-shadow: 0 16px 60px rgba(0,0,0,0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .glass2{
+      background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .ring-grad{
+      position:relative;
+    }
+    .ring-grad:before{
+      content:"";
+      position:absolute; inset:-1px;
+      border-radius: 24px;
+      padding:1px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.75), rgba(34,211,238,0.55), rgba(52,211,153,0.35));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events:none;
+    }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:.55rem;
+      border-radius: 14px;
+      padding: .85rem 1.05rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      transition: transform .15s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+      user-select:none;
+    }
+    .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
+    .btn:active{ transform: translateY(0px) scale(0.99); }
+    .btn-primary{
+      border: 1px solid rgba(124,58,237,0.35);
+      background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(34,211,238,0.30));
+      box-shadow: 0 18px 60px rgba(124,58,237,0.20);
+    }
+    .btn-primary:hover{
+      border-color: rgba(34,211,238,0.35);
+      box-shadow: 0 20px 70px rgba(34,211,238,0.18), 0 18px 60px rgba(124,58,237,0.18);
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:.45rem;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      padding: .42rem .65rem;
+      border-radius: 999px;
+      color: rgba(255,255,255,0.78);
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: .78rem;
+      padding: .18rem .42rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.85);
+    }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .grid-dots{
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.11) 1px, transparent 1px);
+      background-size: 18px 18px;
+      mask-image: radial-gradient(65% 60% at 50% 35%, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 78%);
+      -webkit-mask-image: radial-gradient(65% 60% at 50% 35%, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 78%);
+    }
+    .grad-text{
+      background: linear-gradient(90deg, rgba(124,58,237,1), rgba(34,211,238,1), rgba(52,211,153,1));
+      background-size: 220% 220%;
+      -webkit-background-clip: text;
+      background-clip:text;
+      color: transparent;
+      animation: shimmer 9s ease-in-out infinite;
+    }
+    .fade-up{
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .7s ease, transform .7s ease;
+    }
+    .fade-up.show{
+      opacity: 1;
+      transform: translateY(0px);
+    }
+    .input{
+      width:100%;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: .9rem 1rem;
+      color: rgba(255,255,255,0.92);
+      outline: none;
+      transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+    .input:focus{
+      border-color: rgba(34,211,238,0.35);
+      box-shadow: 0 0 0 4px rgba(34,211,238,0.10);
+      background: rgba(255,255,255,0.06);
+    }
+    .toast{
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 60;
+      width: min(640px, calc(100vw - 32px));
+      pointer-events: none;
+    }
+    .toast > .inner{
+      pointer-events: auto;
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(10,14,28,0.72);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      display:flex;
+      align-items:flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .sr-only-focusable:focus{
+      position: static !important;
+      width: auto !important;
+      height: auto !important;
+      padding: 8px 10px !important;
+      margin: 10px !important;
+      overflow: visible !important;
+      clip: auto !important;
+      white-space: normal !important;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+  </style>
+</head>
+
+<body>
+  <a href="#conteudo" class="sr-only sr-only-focusable">Pular para o conteúdo</a>
+
+  <!-- Top subtle grid -->
+  <div class="pointer-events-none fixed inset-0 grid-dots opacity-60"></div>
+
+  <!-- NAV -->
+  <header class="sticky top-0 z-50">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
+      <div class="glass ring-grad rounded-2xl px-3 sm:px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500/90 to-cyan-400/40 border border-white/10 shadow-soft grid place-items-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7 7h10v10H7V7Z" stroke="rgba(255,255,255,0.9)" stroke-width="1.6"/>
+              <path d="M4 12h3M17 12h3M12 4v3M12 17v3" stroke="rgba(255,255,255,0.8)" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="leading-tight">
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold tracking-tight">Orchestrator</span>
+              <span class="chip">
+                <span class="inline-block h-2 w-2 rounded-full bg-emerald-400/90"></span>
+                template agnóstico
+              </span>
+            </div>
+            <div class="text-xs text-white/60 -mt-0.5">Abstração & orquestração de APIs/SDKs</div>
+          </div>
+        </div>
+
+        <nav class="hidden md:flex items-center gap-2">
+          <a href="#como-funciona" class="btn !py-2 !px-3 text-sm">Como funciona</a>
+          <a href="#recursos" class="btn !py-2 !px-3 text-sm">Recursos</a>
+          <a href="#estrategias" class="btn !py-2 !px-3 text-sm">Estratégias</a>
+          <a href="#docs" class="btn !py-2 !px-3 text-sm">SDK</a>
+          <a href="#precos" class="btn !py-2 !px-3 text-sm">Planos</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button id="btnOpenCommand" class="hidden sm:inline-flex btn !py-2 !px-3 text-sm" title="Command palette">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 8h10M10 12h10M10 16h10" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M4.5 8h.01M4.5 12h.01M4.5 16h.01" stroke="rgba(255,255,255,0.85)" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <span class="text-white/80">Menu</span>
+            <span class="kbd">Ctrl K</span>
+          </button>
+
+          <a href="#cta" class="btn btn-primary !py-2.5 !px-3.5 text-sm">
+            Começar
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7 17L17 7" stroke="rgba(255,255,255,0.9)" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M9 7h8v8" stroke="rgba(255,255,255,0.9)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+
+          <button id="btnMobile" class="md:hidden btn !py-2 !px-3" aria-label="Abrir menu">
+            <svg id="iconHamburger" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 7h14M5 12h14M5 17h14" stroke="rgba(255,255,255,0.9)" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile menu -->
+      <div id="mobileMenu" class="hidden mt-3 glass rounded-2xl ring-grad overflow-hidden">
+        <div class="p-3 grid gap-2">
+          <a href="#como-funciona" class="btn w-full justify-start">Como funciona</a>
+          <a href="#recursos" class="btn w-full justify-start">Recursos</a>
+          <a href="#estrategias" class="btn w-full justify-start">Estratégias</a>
+          <a href="#docs" class="btn w-full justify-start">SDK</a>
+          <a href="#precos" class="btn w-full justify-start">Planos</a>
+          <button id="btnOpenCommandMobile" class="btn w-full justify-start">
+            Abrir menu rápido <span class="ml-auto kbd">Ctrl K</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <!-- HERO -->
+    <section class="pt-8 sm:pt-14 lg:pt-16 pb-10 sm:pb-14">
+      <div class="grid lg:grid-cols-12 gap-6 lg:gap-10 items-start">
+        <div class="lg:col-span-7">
+          <div class="fade-up show">
+            <div class="flex flex-wrap gap-2 items-center mb-5">
+              <span class="chip">
+                <span class="inline-block h-2 w-2 rounded-full bg-cyan-300/90"></span>
+                Agnóstico para qualquer domínio (assinatura, pagamentos, mensagens, KYC, IA…)
+              </span>
+              <span class="chip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 2l2.9 6 6.6.6-5 4.4 1.5 6.5L12 16.9 6 19.5 7.5 13 2.5 8.6 9.1 8 12 2Z" stroke="rgba(255,255,255,0.85)" stroke-width="1.4" stroke-linejoin="round"/>
+                </svg>
+                SDK simples + políticas configuráveis
+              </span>
+              <span class="chip">
+                <span class="inline-block h-2 w-2 rounded-full bg-emerald-300/90"></span>
+                Observabilidade & fallback nativo
+              </span>
+            </div>
+
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05]">
+              Um <span class="grad-text">layer de abstração</span> para múltiplas APIs/SDKs, com roteamento inteligente e experiência consistente.
+            </h1>
+
+            <p class="mt-5 text-base sm:text-lg text-white/75 leading-relaxed max-w-2xl">
+              Use este template para lançar seu produto “All‑X”: um orquestrador que unifica provedores do mesmo contexto (ex.: assinatura eletrônica, gateways, SMS/WhatsApp, storage, LLMs). Você oferece
+              <span class="text-white/90 font-semibold">um único SDK</span> e o cliente escolhe a estratégia: round‑robin, menor latência, balanceamento, failover, custo, etc.
+            </p>
+
+            <div class="mt-7 flex flex-col sm:flex-row gap-3 sm:items-center">
+              <a href="#cta" class="btn btn-primary w-full sm:w-auto">
+                Gerar chave e testar
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M7 17L17 7" stroke="rgba(255,255,255,0.9)" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M9 7h8v8" stroke="rgba(255,255,255,0.9)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+              <a href="#docs" class="btn w-full sm:w-auto">
+                Ver SDK e exemplos
+                <span class="kbd">/sdk</span>
+              </a>
+              <button id="btnCopySnippet" class="btn w-full sm:w-auto">
+                Copiar snippet
+                <span class="kbd">⌘C</span>
+              </button>
+            </div>
+
+            <div class="mt-7 flex flex-wrap gap-2 text-sm text-white/65">
+              <span class="chip">✓ Multi-provider</span>
+              <span class="chip">✓ Estratégias plugáveis</span>
+              <span class="chip">✓ Rate-limit / retries</span>
+              <span class="chip">✓ Logs / métricas</span>
+              <span class="chip">✓ SLA por rota</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Demo Card -->
+        <div class="lg:col-span-5">
+          <div class="glass ring-grad rounded-3xl p-4 sm:p-5 lg:p-6 shadow-glow fade-up show">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-sm text-white/70">Demo (interativo)</div>
+                <div class="text-xl font-bold mt-0.5">Simulador de orquestração</div>
+              </div>
+              <div class="chip">
+                <span class="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
+                sandbox
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-3">
+              <div class="glass2 rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                  <div class="text-sm font-semibold">Operação</div>
+                  <div class="text-xs text-white/55">Escolha um “contexto”</div>
+                </div>
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button class="btn !py-2.5 justify-start opBtn" data-op="create">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-white/5 border border-white/10 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14" stroke="rgba(255,255,255,0.85)" stroke-width="1.7" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Criar</div>
+                      <div class="text-xs text-white/55">ex.: criar envelope / cobrança</div>
+                    </span>
+                  </button>
+                  <button class="btn !py-2.5 justify-start opBtn" data-op="send">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-white/5 border border-white/10 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 12l16-8-6 16-2-7-8-1Z" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Enviar</div>
+                      <div class="text-xs text-white/55">ex.: disparo / request</div>
+                    </span>
+                  </button>
+                  <button class="btn !py-2.5 justify-start opBtn" data-op="status">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-white/5 border border-white/10 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 19V5M8 17v-6m4 6V7m4 10v-4m4 4V9" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Consultar</div>
+                      <div class="text-xs text-white/55">status / webhook audit</div>
+                    </span>
+                  </button>
+                  <button class="btn !py-2.5 justify-start opBtn" data-op="cancel">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-white/5 border border-white/10 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Cancelar</div>
+                      <div class="text-xs text-white/55">reversão / revoke</div>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="glass2 rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                  <div class="text-sm font-semibold">Estratégia</div>
+                  <div class="text-xs text-white/55">Política configurável</div>
+                </div>
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button class="btn !py-2.5 justify-start stratBtn" data-strategy="round_robin">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-violet-500/15 border border-violet-400/20 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 7h10M7 12h10M7 17h10" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Round‑robin</div>
+                      <div class="text-xs text-white/55">distribui igualmente</div>
+                    </span>
+                  </button>
+                  <button class="btn !py-2.5 justify-start stratBtn" data-strategy="load_balance">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-cyan-500/15 border border-cyan-400/20 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 8h12M8 12h8M10 16h4" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Load balance</div>
+                      <div class="text-xs text-white/55">peso por capacidade</div>
+                    </span>
+                  </button>
+                  <button class="btn !py-2.5 justify-start stratBtn" data-strategy="most_fast">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-emerald-500/15 border border-emerald-400/20 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 13l4-4 4 4 4-4" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M6 18h12" stroke="rgba(255,255,255,0.7)" stroke-width="1.6" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Mais rápido</div>
+                      <div class="text-xs text-white/55">menor latência</div>
+                    </span>
+                  </button>
+                  <button class="btn !py-2.5 justify-start stratBtn" data-strategy="failover">
+                    <span class="inline-flex h-8 w-8 rounded-xl bg-rose-500/15 border border-rose-400/20 items-center justify-center">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M7 7l10 10M17 7L7 17" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+                      </svg>
+                    </span>
+                    <span>
+                      <div class="text-sm font-semibold">Failover</div>
+                      <div class="text-xs text-white/55">fallback automático</div>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="mt-4">
+                  <div class="flex items-center justify-between">
+                    <div class="text-sm font-semibold">Provedores (exemplo)</div>
+                    <div class="text-xs text-white/55">arraste para reordenar</div>
+                  </div>
+
+                  <div id="providers" class="mt-3 grid gap-2">
+                    <!-- provider row template injected -->
+                  </div>
+                </div>
+              </div>
+
+              <div class="glass2 rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                  <div class="text-sm font-semibold">Resultado</div>
+                  <div class="text-xs text-white/55">simulação de rota</div>
+                </div>
+
+                <div class="mt-3 grid gap-2">
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <button id="btnRun" class="btn btn-primary w-full sm:w-auto flex-1">
+                      Rodar simulação
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M8 5v14l11-7L8 5Z" stroke="rgba(255,255,255,0.9)" stroke-width="1.6" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <button id="btnReset" class="btn w-full sm:w-auto">
+                      Reset
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M20 12a8 8 0 1 1-2.3-5.7" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+                        <path d="M20 4v6h-6" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div class="rounded-2xl border border-white/10 bg-black/25 p-3">
+                    <div class="flex items-center justify-between">
+                      <div class="text-xs text-white/60">Log de roteamento</div>
+                      <div class="flex items-center gap-2">
+                        <span id="badgeOp" class="chip">op: <span class="mono text-white/85">create</span></span>
+                        <span id="badgeStrat" class="chip">strat: <span class="mono text-white/85">round_robin</span></span>
+                      </div>
+                    </div>
+                    <pre id="log" class="mt-2 mono text-[12px] leading-relaxed text-white/80 whitespace-pre-wrap"></pre>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2 justify-center lg:justify-start text-xs text-white/55">
+            <span class="chip">Roteamento por operação</span>
+            <span class="chip">Regras por tenant</span>
+            <span class="chip">Quotas por provedor</span>
+            <span class="chip">Fallback + retry</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST -->
+    <section class="pb-6 sm:pb-10">
+      <div class="glass rounded-3xl ring-grad p-5 sm:p-7">
+        <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-8">
+          <div class="flex-1">
+            <div class="text-sm text-white/65">Você pode vender como</div>
+            <div class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">“Um SDK. Vários provedores. Uma experiência.”</div>
+            <p class="text-white/70 mt-2 max-w-2xl">
+              Ideal para reduzir lock-in, melhorar disponibilidade, e padronizar integrações de clientes.
+            </p>
+          </div>
+          <div class="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div class="glass2 rounded-2xl p-3 text-center">
+              <div class="text-xl font-extrabold">99.9%</div>
+              <div class="text-xs text-white/60">SLA alvo</div>
+            </div>
+            <div class="glass2 rounded-2xl p-3 text-center">
+              <div class="text-xl font-extrabold">&lt; 30ms</div>
+              <div class="text-xs text-white/60">overhead médio</div>
+            </div>
+            <div class="glass2 rounded-2xl p-3 text-center">
+              <div class="text-xl font-extrabold">1 SDK</div>
+              <div class="text-xs text-white/60">para o cliente</div>
+            </div>
+            <div class="glass2 rounded-2xl p-3 text-center">
+              <div class="text-xl font-extrabold">N</div>
+              <div class="text-xs text-white/60">provedores</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="como-funciona" class="pt-10 sm:pt-14 pb-10">
+      <div class="fade-up">
+        <div class="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div class="text-sm text-white/65">Arquitetura</div>
+            <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">Como funciona (agnóstico)</h2>
+          </div>
+          <div class="text-sm text-white/65 max-w-xl">
+            Um template para “Allsign”, “Allpay”, “Allmsg”, “Allkyc”, “Allstorage” — troque o conteúdo e mantenha a narrativa.
+          </div>
+        </div>
+
+        <div class="mt-6 grid lg:grid-cols-3 gap-3 sm:gap-4">
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-2xl bg-violet-500/20 border border-violet-400/20 grid place-items-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8 12h8" stroke="rgba(255,255,255,0.9)" stroke-width="1.7" stroke-linecap="round"/>
+                  <path d="M6 8h12M6 16h12" stroke="rgba(255,255,255,0.7)" stroke-width="1.7" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-bold">1) Unificação</div>
+                <div class="text-sm text-white/65">Um contrato de API/SDK comum</div>
+              </div>
+            </div>
+            <p class="mt-3 text-white/70 text-sm leading-relaxed">
+              Você define uma interface estável (ex.: <span class="mono">create()</span>, <span class="mono">send()</span>, <span class="mono">status()</span>, <span class="mono">cancel()</span>) e mapeia para cada provedor.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-2xl bg-cyan-500/20 border border-cyan-400/20 grid place-items-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 3v18" stroke="rgba(255,255,255,0.7)" stroke-width="1.7" stroke-linecap="round"/>
+                  <path d="M7 8l5-5 5 5" stroke="rgba(255,255,255,0.9)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M7 16l5 5 5-5" stroke="rgba(255,255,255,0.9)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-bold">2) Orquestração</div>
+                <div class="text-sm text-white/65">Políticas por operação/tenant</div>
+              </div>
+            </div>
+            <p class="mt-3 text-white/70 text-sm leading-relaxed">
+              Estratégias configuráveis (round‑robin, load balance, menor latência, custo, failover, preferências por rota) com regras e pesos.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/20 grid place-items-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 17l6-6 4 4 6-6" stroke="rgba(255,255,255,0.9)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4 7h16" stroke="rgba(255,255,255,0.65)" stroke-width="1.7" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-bold">3) Operação</div>
+                <div class="text-sm text-white/65">Métricas, logs e webhooks</div>
+              </div>
+            </div>
+            <p class="mt-3 text-white/70 text-sm leading-relaxed">
+              Observabilidade e governança: tentativas, latência, taxa de erro, custos, auditoria, rate-limit e alertas.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="recursos" class="pt-6 sm:pt-10 pb-10">
+      <div class="fade-up">
+        <div class="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div class="text-sm text-white/65">Produto</div>
+            <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">Recursos essenciais do “All‑X”</h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="chip">Multi-tenant</span>
+            <span class="chip">SDK</span>
+            <span class="chip">Policy Engine</span>
+            <span class="chip">Webhook Hub</span>
+          </div>
+        </div>
+
+        <div class="mt-6 grid md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">Contratos unificados</div>
+              <span class="chip">API v1</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">
+              Padronize request/response, erros e estados, independente do provedor. Retorne um <span class="mono">providerReceipt</span> para auditoria.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">Fallback & retry</div>
+              <span class="chip">resiliência</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">
+              Configure tentativas, circuit breaker e failover por operação. Proteja seus clientes de instabilidades.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">Roteamento por policy</div>
+              <span class="chip">rules</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">
+              Regras por tenant, país, volume, horário, tipo de documento/transação. Integre uma “Policy DSL” ou UI.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">Observabilidade</div>
+              <span class="chip">metrics</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">
+              Latência, erros, custos estimados, dispersão por provedor e SLO. Exportação para Prometheus/OpenTelemetry.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">Webhooks normalizados</div>
+              <span class="chip">events</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">
+              Receba webhooks de cada provedor e publique eventos unificados para seus clientes.
+            </p>
+          </div>
+
+          <div class="glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">Governança</div>
+              <span class="chip">security</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">
+              RBAC, API keys, logs imutáveis, rate-limit por tenant e mascaramento de PII quando necessário.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STRATEGIES -->
+    <section id="estrategias" class="pt-6 sm:pt-10 pb-10">
+      <div class="fade-up">
+        <div class="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div class="text-sm text-white/65">Roteamento</div>
+            <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">Estratégias plugáveis (exemplos)</h2>
+          </div>
+          <div class="text-sm text-white/65 max-w-xl">
+            O cliente escolhe a estratégia; você define defaults por operação e permite override por request.
+          </div>
+        </div>
+
+        <div class="mt-6 grid lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-7 glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="font-bold text-lg">Policy Engine</div>
+                <div class="text-sm text-white/65">Exemplo de config (agnóstico)</div>
+              </div>
+              <button id="btnCopyPolicy" class="btn !py-2 !px-3 text-sm">Copiar</button>
+            </div>
+            <pre id="policyCode" class="mt-4 mono text-[12px] leading-relaxed text-white/85 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/25 p-4"></pre>
+          </div>
+
+          <div class="lg:col-span-5 grid gap-4">
+            <div class="glass rounded-3xl p-5 ring-grad">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="font-bold">Round‑robin</div>
+                  <div class="text-sm text-white/65">bom para distribuir volume</div>
+                </div>
+                <span class="chip">stable</span>
+              </div>
+              <p class="mt-2 text-sm text-white/70">
+                Alterna entre provedores elegíveis. Combine com “health scoring” para evitar rotas degradadas.
+              </p>
+            </div>
+
+            <div class="glass rounded-3xl p-5 ring-grad">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="font-bold">Most‑fast / lowest‑latency</div>
+                  <div class="text-sm text-white/65">otimiza UX</div>
+                </div>
+                <span class="chip">perf</span>
+              </div>
+              <p class="mt-2 text-sm text-white/70">
+                Seleciona o provedor com menor latência em janela móvel. Use amostragem e limites para evitar flapping.
+              </p>
+            </div>
+
+            <div class="glass rounded-3xl p-5 ring-grad">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="font-bold">Failover com circuit breaker</div>
+                  <div class="text-sm text-white/65">resiliência</div>
+                </div>
+                <span class="chip">sre</span>
+              </div>
+              <p class="mt-2 text-sm text-white/70">
+                Tenta o provedor preferido; em erro/timeouts, troca automaticamente para o próximo elegível.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SDK / DOCS -->
+    <section id="docs" class="pt-6 sm:pt-10 pb-10">
+      <div class="fade-up">
+        <div class="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div class="text-sm text-white/65">SDK</div>
+            <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">Integração em minutos</h2>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <button class="btn !py-2 !px-3 text-sm tabBtn" data-tab="node">Node</button>
+            <button class="btn !py-2 !px-3 text-sm tabBtn" data-tab="python">Python</button>
+            <button class="btn !py-2 !px-3 text-sm tabBtn" data-tab="curl">cURL</button>
+          </div>
+        </div>
+
+        <div class="mt-6 grid lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-7 glass rounded-3xl p-5 ring-grad">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="font-bold text-lg">Exemplo de uso</div>
+                <div class="text-sm text-white/65">SDK simples com estratégia por request</div>
+              </div>
+              <button id="btnCopySdk" class="btn !py-2 !px-3 text-sm">Copiar</button>
+            </div>
+            <pre id="sdkCode" class="mt-4 mono text-[12px] leading-relaxed text-white/85 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/25 p-4"></pre>
+
+            <div class="mt-4 grid sm:grid-cols-2 gap-3">
+              <div class="glass2 rounded-2xl p-4">
+                <div class="font-semibold text-sm">Boas práticas</div>
+                <ul class="mt-2 text-sm text-white/70 list-disc pl-5 space-y-1">
+                  <li>Idempotência por <span class="mono">requestId</span></li>
+                  <li>Timeouts por operação</li>
+                  <li>Retries apenas em erros transitórios</li>
+                </ul>
+              </div>
+              <div class="glass2 rounded-2xl p-4">
+                <div class="font-semibold text-sm">Eventos unificados</div>
+                <ul class="mt-2 text-sm text-white/70 list-disc pl-5 space-y-1">
+                  <li><span class="mono">operation.started</span></li>
+                  <li><span class="mono">operation.succeeded</span></li>
+                  <li><span class="mono">operation.failed</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 grid gap-4">
+            <div class="glass rounded-3xl p-5 ring-grad">
+              <div class="flex items-center justify-between">
+                <div class="font-bold">Playground</div>
+                <span class="chip">mock</span>
+              </div>
+              <p class="mt-2 text-sm text-white/70">Gere uma chave sandbox e simule requests. (Neste template, tudo é client-side.)</p>
+
+              <div class="mt-4">
+                <label class="text-xs text-white/60">Nome do seu produto (ex.: allsign)</label>
+                <input id="productName" class="input mt-1" placeholder="allsign" value="allx" />
+              </div>
+
+              <div class="mt-3">
+                <label class="text-xs text-white/60">E-mail</label>
+                <input id="email" class="input mt-1" placeholder="voce@empresa.com" />
+              </div>
+
+              <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button id="btnGenKey" class="btn btn-primary w-full">Gerar API Key</button>
+                <button id="btnCopyKey" class="btn w-full" disabled>Copiar Key</button>
+              </div>
+
+              <div class="mt-3 rounded-2xl border border-white/10 bg-black/25 p-4">
+                <div class="text-xs text-white/60">API Key (sandbox)</div>
+                <div id="apiKey" class="mono text-sm text-white/85 mt-1 select-all">—</div>
+              </div>
+            </div>
+
+            <div class="glass rounded-3xl p-5 ring-grad">
+              <div class="flex items-center justify-between">
+                <div class="font-bold">Design agnóstico</div>
+                <span class="chip">template</span>
+              </div>
+              <p class="mt-2 text-sm text-white/70">
+                Troque logo, cores e exemplos de operação. A estrutura (proposta, recursos, SDK e estratégia) permanece igual para qualquer “orchestrator layer”.
+              </p>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <span class="chip">Assinatura</span>
+                <span class="chip">Pagamentos</span>
+                <span class="chip">Mensageria</span>
+                <span class="chip">Storage</span>
+                <span class="chip">IA/LLMs</span>
+                <span class="chip">KYC</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section id="precos" class="pt-6 sm:pt-10 pb-14">
+      <div class="fade-up">
+        <div class="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div class="text-sm text-white/65">Planos</div>
+            <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">Preços (exemplo)</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-white/65">Faturamento</span>
+            <button id="billingToggle" class="btn !py-2 !px-3 text-sm" aria-pressed="false">
+              <span id="billingLabel" class="text-white/80">Mensal</span>
+              <span class="chip">-15% anual</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 grid lg:grid-cols-3 gap-4">
+          <div class="glass rounded-3xl p-6 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold text-lg">Starter</div>
+              <span class="chip">para validar</span>
+            </div>
+            <div class="mt-3 text-4xl font-extrabold tracking-tight">
+              <span class="price" data-month="R$ 0" data-year="R$ 0">R$ 0</span>
+              <span class="text-base font-semibold text-white/60">/mês</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">SDK + 2 provedores, limites básicos e logs.</p>
+            <ul class="mt-4 text-sm text-white/70 space-y-2">
+              <li>• 1 ambiente</li>
+              <li>• 2 estratégias</li>
+              <li>• Webhooks normalizados</li>
+              <li>• Rate limit padrão</li>
+            </ul>
+            <a href="#cta" class="btn w-full mt-5">Começar</a>
+          </div>
+
+          <div class="glass rounded-3xl p-6 ring-grad relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-gradient-to-br from-violet-500/35 to-cyan-400/15 blur-2xl"></div>
+            <div class="flex items-center justify-between relative">
+              <div class="font-bold text-lg">Pro</div>
+              <span class="chip">mais vendido</span>
+            </div>
+            <div class="mt-3 text-4xl font-extrabold tracking-tight relative">
+              <span class="price" data-month="R$ 499" data-year="R$ 424">R$ 499</span>
+              <span class="text-base font-semibold text-white/60">/mês</span>
+            </div>
+            <p class="mt-2 text-sm text-white/70 relative">Políticas avançadas, observabilidade e mais provedores.</p>
+            <ul class="mt-4 text-sm text-white/70 space-y-2 relative">
+              <li>• Multi-tenant</li>
+              <li>• Todas as estratégias</li>
+              <li>• Circuit breaker + fallback</li>
+              <li>• Export de métricas</li>
+              <li>• SLO por rota</li>
+            </ul>
+            <a href="#cta" class="btn btn-primary w-full mt-5 relative">Falar com vendas</a>
+          </div>
+
+          <div class="glass rounded-3xl p-6 ring-grad">
+            <div class="flex items-center justify-between">
+              <div class="font-bold text-lg">Enterprise</div>
+              <span class="chip">SLA</span>
+            </div>
+            <div class="mt-3 text-4xl font-extrabold tracking-tight">
+              <span class="price" data-month="Sob consulta" data-year="Sob consulta">Sob consulta</span>
+              <span class="text-base font-semibold text-white/60"></span>
+            </div>
+            <p class="mt-2 text-sm text-white/70">Compliance, RBAC, SSO e custom policies.</p>
+            <ul class="mt-4 text-sm text-white/70 space-y-2">
+              <li>• SSO/SAML</li>
+              <li>• Ambientes ilimitados</li>
+              <li>• Auditoria avançada</li>
+              <li>• Suporte dedicado</li>
+            </ul>
+            <a href="#cta" class="btn w-full mt-5">Agendar demo</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="cta" class="pb-16">
+      <div class="glass rounded-3xl ring-grad p-6 sm:p-8 overflow-hidden relative">
+        <div class="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-gradient-to-br from-emerald-400/20 to-cyan-400/10 blur-2xl"></div>
+        <div class="grid lg:grid-cols-12 gap-6 relative">
+          <div class="lg:col-span-7">
+            <div class="text-sm text-white/65">Pronto para adaptar?</div>
+            <h3 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-1">
+              Pegue este template e transforme no seu <span class="grad-text">All‑X</span>.
+            </h3>
+            <p class="mt-3 text-white/75 max-w-2xl">
+              Troque o nome, ajuste exemplos de operações e conecte seu backend. O layout já está pronto para comunicar o valor de um orquestrador/abstrator.
+            </p>
+
+            <div class="mt-5 flex flex-wrap gap-2">
+              <span class="chip">• Consistência de API</span>
+              <span class="chip">• Redução de lock‑in</span>
+              <span class="chip">• Alta disponibilidade</span>
+              <span class="chip">• Melhor performance</span>
+              <span class="chip">• Governança</span>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5">
+            <div class="glass2 rounded-3xl p-5 border border-white/10">
+              <div class="font-bold">Receber o template</div>
+              <p class="text-sm text-white/65 mt-1">Simulação de formulário (front-end). Substitua pelo seu endpoint.</p>
+
+              <form id="leadForm" class="mt-4 grid gap-3">
+                <div>
+                  <label class="text-xs text-white/60">Seu nome</label>
+                  <input class="input mt-1" name="name" placeholder="Seu nome" required />
+                </div>
+                <div>
+                  <label class="text-xs text-white/60">E-mail</label>
+                  <input class="input mt-1" name="email" type="email" placeholder="voce@empresa.com" required />
+                </div>
+                <div>
+                  <label class="text-xs text-white/60">Domínio (opcional)</label>
+                  <input class="input mt-1" name="domain" placeholder="assinatura eletrônica, pagamentos, mensageria..." />
+                </div>
+                <button class="btn btn-primary w-full" type="submit">
+                  Enviar
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 12l16-8-6 16-2-7-8-1Z" stroke="rgba(255,255,255,0.9)" stroke-width="1.6" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <div class="text-xs text-white/55">
+                  Ao enviar, você concorda com um termo genérico. (Substitua por sua política.)
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="pb-10">
+      <div class="glass rounded-3xl ring-grad p-6 sm:p-8">
+        <div class="grid md:grid-cols-12 gap-6">
+          <div class="md:col-span-5">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500/90 to-cyan-400/40 border border-white/10 shadow-soft grid place-items-center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M7 7h10v10H7V7Z" stroke="rgba(255,255,255,0.9)" stroke-width="1.6"/>
+                  <path d="M4 12h3M17 12h3M12 4v3M12 17v3" stroke="rgba(255,255,255,0.8)" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-extrabold tracking-tight">Orchestrator Template</div>
+                <div class="text-xs text-white/60">Agnóstico para camadas de abstração</div>
+              </div>
+            </div>
+            <p class="mt-4 text-sm text-white/65 max-w-md">
+              Template pronto para produção: responsivo, acessível, com micro-interações, seções de valor, estratégias e exemplos de SDK.
+            </p>
+          </div>
+
+          <div class="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <div class="text-sm font-bold">Produto</div>
+              <div class="mt-2 grid gap-2 text-sm text-white/65">
+                <a class="hover:text-white/85 transition" href="#como-funciona">Como funciona</a>
+                <a class="hover:text-white/85 transition" href="#recursos">Recursos</a>
+                <a class="hover:text-white/85 transition" href="#estrategias">Estratégias</a>
+                <a class="hover:text-white/85 transition" href="#docs">SDK</a>
+              </div>
+            </div>
+            <div>
+              <div class="text-sm font-bold">Empresa</div>
+              <div class="mt-2 grid gap-2 text-sm text-white/65">
+                <a class="hover:text-white/85 transition" href="#cta">Contato</a>
+                <a class="hover:text-white/85 transition" href="#precos">Planos</a>
+                <button id="btnOpenCommandFooter" class="text-left hover:text-white/85 transition">Menu rápido</button>
+              </div>
+            </div>
+            <div>
+              <div class="text-sm font-bold">Legal</div>
+              <div class="mt-2 grid gap-2 text-sm text-white/65">
+                <a class="hover:text-white/85 transition" href="javascript:void(0)">Privacidade</a>
+                <a class="hover:text-white/85 transition" href="javascript:void(0)">Termos</a>
+                <a class="hover:text-white/85 transition" href="javascript:void(0)">Segurança</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-white/10 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-xs text-white/55">
+          <div>© <span id="year"></span> Orchestrator Template. Todos os direitos reservados.</div>
+          <div class="flex items-center gap-2">
+            <span class="chip">Performance</span>
+            <span class="chip">Acessibilidade</span>
+            <span class="chip">Resiliência</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- COMMAND PALETTE -->
+  <div id="commandBackdrop" class="hidden fixed inset-0 z-[70] bg-black/55"></div>
+  <div id="command" class="hidden fixed inset-0 z-[80] grid place-items-start sm:place-items-center p-4">
+    <div class="glass ring-grad rounded-3xl w-full max-w-2xl overflow-hidden">
+      <div class="p-4 border-b border-white/10 flex items-center gap-2">
+        <div class="h-9 w-9 rounded-2xl bg-white/5 border border-white/10 grid place-items-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M10 18a8 8 0 1 1 5.3-14" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M21 21l-5.2-5.2" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <input id="commandInput" class="input !py-2.5" placeholder="Buscar… (ex.: sdk, preços, estratégias)" />
+        <button id="btnCloseCommand" class="btn !py-2 !px-3">Esc</button>
+      </div>
+      <div id="commandList" class="p-2 max-h-[60vh] overflow-auto">
+        <!-- injected -->
+      </div>
+      <div class="px-4 py-3 border-t border-white/10 text-xs text-white/55 flex items-center justify-between">
+        <span>Dica: <span class="kbd">Enter</span> para abrir • <span class="kbd">Esc</span> para fechar</span>
+        <span class="chip">Template</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite">
+    <div class="inner">
+      <div class="flex gap-3">
+        <div id="toastIcon" class="mt-0.5 h-8 w-8 rounded-2xl border border-white/10 bg-white/5 grid place-items-center"></div>
+        <div>
+          <div id="toastTitle" class="font-semibold text-sm">OK</div>
+          <div id="toastMsg" class="text-sm text-white/70">Mensagem</div>
+        </div>
+      </div>
+      <button id="toastClose" class="btn !py-2 !px-3 text-sm">Fechar</button>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const $ = (q, el=document) => el.querySelector(q);
+    const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    function showToast({title="Pronto", message="", tone="ok"}){
+      const toast = $("#toast");
+      const icon = $("#toastIcon");
+      const titleEl = $("#toastTitle");
+      const msgEl = $("#toastMsg");
+
+      const tones = {
+        ok: {bg:"rgba(52,211,153,0.18)", stroke:"rgba(52,211,153,0.35)", svg:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`},
+        info: {bg:"rgba(34,211,238,0.16)", stroke:"rgba(34,211,238,0.32)", svg:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 8h.01" stroke="rgba(255,255,255,0.92)" stroke-width="3" stroke-linecap="round"/><path d="M11 12h1v6h1" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" stroke-linecap="round"/></svg>`},
+        warn: {bg:"rgba(251,191,36,0.16)", stroke:"rgba(251,191,36,0.34)", svg:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 9v4" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" stroke-linecap="round"/><path d="M12 17h.01" stroke="rgba(255,255,255,0.92)" stroke-width="3" stroke-linecap="round"/><path d="M10.3 4.9h3.4L22 19H2L10.3 4.9Z" stroke="rgba(255,255,255,0.65)" stroke-width="1.4" stroke-linejoin="round"/></svg>`},
+        err: {bg:"rgba(251,113,133,0.16)", stroke:"rgba(251,113,133,0.34)", svg:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" stroke-linecap="round"/></svg>`},
+      };
+
+      const t = tones[tone] || tones.ok;
+      icon.style.background = t.bg;
+      icon.style.borderColor = t.stroke;
+      icon.innerHTML = t.svg;
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+
+      toast.classList.remove("hidden");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=>toast.classList.add("hidden"), 3400);
+    }
+
+    async function copyToClipboard(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast({title:"Copiado", message:"Conteúdo copiado para a área de transferência.", tone:"ok"});
+      }catch(e){
+        showToast({title:"Não foi possível copiar", message:"Seu navegador bloqueou o acesso à área de transferência.", tone:"warn"});
+      }
+    }
+
+    // ---------- Mobile menu ----------
+    const btnMobile = $("#btnMobile");
+    const mobileMenu = $("#mobileMenu");
+    btnMobile?.addEventListener("click", ()=>{
+      mobileMenu.classList.toggle("hidden");
+    });
+    $$("#mobileMenu a").forEach(a => a.addEventListener("click", ()=> mobileMenu.classList.add("hidden")));
+
+    // ---------- Intersection animations ----------
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting) e.target.classList.add("show");
+      });
+    }, {threshold: 0.12});
+    $$(".fade-up").forEach(el=> io.observe(el));
+
+    // ---------- Demo simulator ----------
+    const state = {
+      op: "create",
+      strategy: "round_robin",
+      rrIndex: 0,
+      providers: [
+        { id:"providerA", name:"Provider A", weight: 50, health: 0.96, baseLatency: 180, failRate: 0.06, enabled:true },
+        { id:"providerB", name:"Provider B", weight: 30, health: 0.92, baseLatency: 120, failRate: 0.09, enabled:true },
+        { id:"providerC", name:"Provider C", weight: 20, health: 0.88, baseLatency: 90,  failRate: 0.13, enabled:true },
+      ],
+      lastChosen: null,
+      history: [],
+      billing: "month"
+    };
+
+    function fmtPct(n){ return Math.round(n*100) + "%"; }
+    function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+
+    function providerRow(p){
+      const el = document.createElement("div");
+      el.className = "glass2 rounded-2xl p-3 border border-white/10 flex items-center gap-3";
+      el.draggable = true;
+      el.dataset.id = p.id;
+
+      el.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold text-sm truncate">${p.name}</div>
+            <label class="chip cursor-pointer select-none">
+              <input type="checkbox" class="accent-white/30 providerEnabled" ${p.enabled ? "checked": ""}/>
+              ativo
+            </label>
+          </div>
+          <div class="mt-2 grid grid-cols-3 gap-2">
+            <div class="rounded-xl border border-white/10 bg-black/20 p-2">
+              <div class="text-[11px] text-white/55">peso</div>
+              <div class="text-sm font-semibold"><span class="mono">${p.weight}</span></div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/20 p-2">
+              <div class="text-[11px] text-white/55">health</div>
+              <div class="text-sm font-semibold"><span class="mono">${fmtPct(p.health)}</span></div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/20 p-2">
+              <div class="text-[11px] text-white/55">latência</div>
+              <div class="text-sm font-semibold"><span class="mono">${p.baseLatency}ms</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <button class="btn !py-2 !px-3 text-sm providerTune" title="Ajustar">Ajustar</button>
+          <button class="btn !py-2 !px-3 text-sm providerRemove" title="Remover">Remover</button>
+        </div>
+      `;
+
+      // Enable toggle
+      $(".providerEnabled", el).addEventListener("change", (e)=>{
+        p.enabled = e.target.checked;
+        showToast({title:"Atualizado", message:`${p.name} ${p.enabled ? "ativado" : "desativado"}.`, tone:"info"});
+      });
+
+      // Tune modal (simple prompt)
+      $(".providerTune", el).addEventListener("click", ()=>{
+        const weight = parseInt(prompt(`Peso de ${p.name} (0-100):`, p.weight), 10);
+        if(!Number.isFinite(weight)) return;
+        p.weight = clamp(weight, 0, 100);
+
+        const latency = parseInt(prompt(`Latência base (ms) de ${p.name}:`, p.baseLatency), 10);
+        if(Number.isFinite(latency)) p.baseLatency = clamp(latency, 30, 1200);
+
+        const fail = parseFloat(prompt(`Fail rate (0.0 - 0.5) de ${p.name}:`, p.failRate));
+        if(Number.isFinite(fail)) p.failRate = clamp(fail, 0, 0.5);
+
+        const health = parseFloat(prompt(`Health (0.5 - 1.0) de ${p.name}:`, p.health));
+        if(Number.isFinite(health)) p.health = clamp(health, 0.5, 1.0);
+
+        renderProviders();
+        showToast({title:"Ajustado", message:`Parâmetros de ${p.name} atualizados.`, tone:"ok"});
+      });
+
+      // Remove
+      $(".providerRemove", el).addEventListener("click", ()=>{
+        if(state.providers.length <= 1){
+          showToast({title:"Atenção", message:"Mantenha pelo menos 1 provedor.", tone:"warn"});
+          return;
+        }
+        state.providers = state.providers.filter(x => x.id !== p.id);
+        renderProviders();
+        showToast({title:"Removido", message:`${p.name} foi removido da simulação.`, tone:"info"});
+      });
+
+      // Drag reorder
+      el.addEventListener("dragstart", (ev)=>{
+        ev.dataTransfer.setData("text/plain", p.id);
+        ev.dataTransfer.effectAllowed = "move";
+        el.classList.add("opacity-70");
+      });
+      el.addEventListener("dragend", ()=>{
+        el.classList.remove("opacity-70");
+      });
+      el.addEventListener("dragover", (ev)=> ev.preventDefault());
+      el.addEventListener("drop", (ev)=>{
+        ev.preventDefault();
+        const fromId = ev.dataTransfer.getData("text/plain");
+        const toId = p.id;
+        if(!fromId || fromId === toId) return;
+
+        const arr = state.providers.slice();
+        const fromIdx = arr.findIndex(x=>x.id===fromId);
+        const toIdx = arr.findIndex(x=>x.id===toId);
+        const [moved] = arr.splice(fromIdx, 1);
+        arr.splice(toIdx, 0, moved);
+        state.providers = arr;
+        renderProviders();
+        showToast({title:"Reordenado", message:"Ordem dos provedores atualizada.", tone:"info"});
+      });
+
+      return el;
+    }
+
+    function renderProviders(){
+      const wrap = $("#providers");
+      wrap.innerHTML = "";
+      state.providers.forEach(p => wrap.appendChild(providerRow(p)));
+    }
+
+    function setActiveButtons(){
+      $$(".opBtn").forEach(b=>{
+        const active = b.dataset.op === state.op;
+        b.style.borderColor = active ? "rgba(34,211,238,0.38)" : "rgba(255,255,255,0.12)";
+        b.style.background = active ? "rgba(34,211,238,0.10)" : "rgba(255,255,255,0.06)";
+      });
+      $$(".stratBtn").forEach(b=>{
+        const active = b.dataset.strategy === state.strategy;
+        b.style.borderColor = active ? "rgba(124,58,237,0.42)" : "rgba(255,255,255,0.12)";
+        b.style.background = active ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.06)";
+      });
+      $("#badgeOp").innerHTML = `op: <span class="mono text-white/85">${state.op}</span>`;
+      $("#badgeStrat").innerHTML = `strat: <span class="mono text-white/85">${state.strategy}</span>`;
+    }
+
+    function pickProvider(op, strategy){
+      const eligible = state.providers.filter(p=>p.enabled);
+      if(eligible.length === 0) return null;
+
+      if(strategy === "round_robin"){
+        const chosen = eligible[state.rrIndex % eligible.length];
+        state.rrIndex++;
+        return chosen;
+      }
+
+      if(strategy === "load_balance"){
+        const total = eligible.reduce((s,p)=>s+p.weight, 0) || 1;
+        let r = Math.random() * total;
+        for(const p of eligible){
+          r -= p.weight;
+          if(r <= 0) return p;
+        }
+        return eligible[eligible.length-1];
+      }
+
+      if(strategy === "most_fast"){
+        // Score: latency with noise, plus penalty for lower health / higher fail rate
+        let best = null;
+        let bestScore = Infinity;
+        eligible.forEach(p=>{
+          const noise = (Math.random()*28 - 14);
+          const latency = p.baseLatency + noise;
+          const penalty = (1 - p.health) * 280 + p.failRate * 420;
+          const score = latency + penalty;
+          if(score < bestScore){
+            bestScore = score;
+            best = p;
+          }
+        });
+        return best;
+      }
+
+      if(strategy === "failover"){
+        // Prefer first eligible in current order; fallback will happen in run
+        return eligible[0];
+      }
+
+      return eligible[0];
+    }
+
+    async function simulateCall(p){
+      const jitter = Math.random()*70 - 20;
+      const latency = clamp(Math.round(p.baseLatency + jitter), 30, 2200);
+
+      await sleep(Math.min(latency, 650)); // keep UI snappy
+
+      const transient = Math.random() < p.failRate;
+      const ok = !transient && Math.random() < p.health;
+      return { ok, latency, transient };
+    }
+
+    function appendLog(lines){
+      const log = $("#log");
+      log.textContent = (log.textContent ? log.textContent + "\n" : "") + lines.join("\n");
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function resetLog(){
+      $("#log").textContent = "";
+      state.history = [];
+    }
+
+    async function runSimulation(){
+      const op = state.op;
+      const strat = state.strategy;
+
+      const start = performance.now();
+      appendLog([`—`, `[${new Date().toLocaleTimeString()}] operation=${op} strategy=${strat}`]);
+
+      const eligible = state.providers.filter(p=>p.enabled);
+      if(eligible.length === 0){
+        appendLog([`ERRO: nenhum provedor ativo.`]);
+        showToast({title:"Sem provedores", message:"Ative ao menos 1 provedor.", tone:"warn"});
+        return;
+      }
+
+      if(strat !== "failover"){
+        const chosen = pickProvider(op, strat);
+        appendLog([`Escolhido: ${chosen.name}`]);
+
+        const res = await simulateCall(chosen);
+        const total = Math.round(performance.now() - start);
+
+        if(res.ok){
+          appendLog([`OK: ${chosen.name} respondeu em ~${res.latency}ms (total UI ${total}ms).`]);
+          showToast({title:"Sucesso", message:`${chosen.name} atendeu a operação (${res.latency}ms).`, tone:"ok"});
+        }else{
+          appendLog([`FALHA: ${chosen.name} (transient=${res.transient}) em ~${res.latency}ms.`]);
+          showToast({title:"Falhou", message:`${chosen.name} falhou. Em produção, configure retry/fallback.`, tone:"err"});
+        }
+        return;
+      }
+
+      // Failover: try providers in order
+      appendLog([`Failover: tentando em ordem…`]);
+      for(let i=0; i<eligible.length; i++){
+        const p = eligible[i];
+        appendLog([`Tentativa ${i+1}/${eligible.length}: ${p.name}…`]);
+
+        const res = await simulateCall(p);
+        if(res.ok){
+          const total = Math.round(performance.now() - start);
+          appendLog([`OK: ${p.name} respondeu em ~${res.latency}ms (total UI ${total}ms).`]);
+          showToast({title:"Sucesso (failover)", message:`${p.name} resolveu após ${i+1} tentativa(s).`, tone:"ok"});
+          return;
+        }
+        appendLog([`Falhou: ${p.name} (transient=${res.transient}) em ~${res.latency}ms.`]);
+      }
+      showToast({title:"Indisponível", message:"Todos os provedores falharam nesta simulação.", tone:"err"});
+      appendLog([`ERRO: todos falharam.`]);
+    }
+
+    $$(".opBtn").forEach(b => b.addEventListener("click", ()=>{
+      state.op = b.dataset.op;
+      setActiveButtons();
+    }));
+    $$(".stratBtn").forEach(b => b.addEventListener("click", ()=>{
+      state.strategy = b.dataset.strategy;
+      setActiveButtons();
+    }));
+
+    $("#btnRun").addEventListener("click", runSimulation);
+    $("#btnReset").addEventListener("click", ()=>{
+      state.op = "create";
+      state.strategy = "round_robin";
+      state.rrIndex = 0;
+      state.providers = [
+        { id:"providerA", name:"Provider A", weight: 50, health: 0.96, baseLatency: 180, failRate: 0.06, enabled:true },
+        { id:"providerB", name:"Provider B", weight: 30, health: 0.92, baseLatency: 120, failRate: 0.09, enabled:true },
+        { id:"providerC", name:"Provider C", weight: 20, health: 0.88, baseLatency: 90,  failRate: 0.13, enabled:true },
+      ];
+      renderProviders();
+      resetLog();
+      setActiveButtons();
+      showToast({title:"Reset", message:"Simulação resetada.", tone:"info"});
+    });
+
+    // ---------- Code blocks ----------
+    const policyText = `{
+  "tenants": {
+    "default": {
+      "providers": ["providerA", "providerB", "providerC"],
+      "operations": {
+        "create": {
+          "strategy": "round_robin",
+          "timeoutMs": 8000,
+          "retries": { "max": 1, "backoffMs": 300 },
+          "failover": true
+        },
+        "send": {
+          "strategy": "load_balance",
+          "weights": { "providerA": 50, "providerB": 30, "providerC": 20 },
+          "timeoutMs": 12000,
+          "retries": { "max": 2, "backoffMs": 450 }
+        },
+        "status": {
+          "strategy": "most_fast",
+          "timeoutMs": 6000,
+          "cacheTtlMs": 5000
+        },
+        "cancel": {
+          "strategy": "failover",
+          "timeoutMs": 8000
+        }
+      }
+    }
+  }
+}`;
+
+    const sdkSamples = {
+      node:
+`import { Orchestrator } from "@orchestrator/sdk";
+
+const client = new Orchestrator({
+  apiKey: process.env.ORCH_API_KEY,
+  baseUrl: "https://api.seu-allx.com",
+});
+
+// operação agnóstica
+const result = await client.operation("create", {
+  payload: {
+    // qualquer domínio: envelope, cobrança, envio, etc.
+    externalId: "req_123",
+    data: { /* ... */ }
+  },
+  strategy: "round_robin", // override por request
+  timeoutMs: 8000,
+});
+
+console.log(result.id, result.provider, result.status);`,
+      python:
+`from orchestrator_sdk import Orchestrator
+
+client = Orchestrator(
+  api_key=os.environ["ORCH_API_KEY"],
+  base_url="https://api.seu-allx.com"
+)
+
+result = client.operation(
+  "send",
+  payload={
+    "externalId": "req_123",
+    "data": { }
+  },
+  strategy="load_balance",
+  timeout_ms=12000
+)
+
+print(result["id"], result["provider"], result["status"])`,
+      curl:
+`curl -X POST "https://api.seu-allx.com/v1/operation/send" \\
+  -H "Authorization: Bearer $ORCH_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "payload": {
+      "externalId": "req_123",
+      "data": {}
+    },
+    "strategy": "most_fast",
+    "timeoutMs": 12000
+  }'`
+    };
+
+    $("#policyCode").textContent = policyText;
+
+    let activeTab = "node";
+    function setTab(tab){
+      activeTab = tab;
+      $("#sdkCode").textContent = sdkSamples[tab] || sdkSamples.node;
+      $$(".tabBtn").forEach(b=>{
+        const on = b.dataset.tab === tab;
+        b.style.borderColor = on ? "rgba(34,211,238,0.38)" : "rgba(255,255,255,0.12)";
+        b.style.background = on ? "rgba(34,211,238,0.10)" : "rgba(255,255,255,0.06)";
+      });
+    }
+    $$(".tabBtn").forEach(b=> b.addEventListener("click", ()=> setTab(b.dataset.tab)));
+    setTab("node");
+
+    $("#btnCopyPolicy").addEventListener("click", ()=> copyToClipboard(policyText));
+    $("#btnCopySdk").addEventListener("click", ()=> copyToClipboard($("#sdkCode").textContent));
+
+    // Hero snippet
+    const heroSnippet =
+`// Instale o SDK (exemplo)
+npm i @orchestrator/sdk
+
+// Use uma única interface para N provedores
+client.operation("create", {
+  payload: { externalId: "req_123", data: {} },
+  strategy: "round_robin"
+});`;
+    $("#btnCopySnippet").addEventListener("click", ()=> copyToClipboard(heroSnippet));
+
+    // ---------- Key generator (sandbox) ----------
+    function genKey(product="allx"){
+      const base = (product || "allx").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "allx";
+      const rand = crypto.getRandomValues(new Uint8Array(16));
+      const hex = Array.from(rand).map(b=>b.toString(16).padStart(2,"0")).join("");
+      return `${base}_sandbox_${hex}`;
+    }
+
+    $("#btnGenKey").addEventListener("click", ()=>{
+      const product = $("#productName").value.trim() || "allx";
+      const email = $("#email").value.trim();
+      const key = genKey(product);
+      $("#apiKey").textContent = key;
+      $("#btnCopyKey").disabled = false;
+      showToast({title:"API Key gerada", message: email ? `Sandbox pronta para ${email}.` : "Sandbox pronta.", tone:"ok"});
+    });
+    $("#btnCopyKey").addEventListener("click", ()=>{
+      const key = $("#apiKey").textContent.trim();
+      if(key && key !== "—") copyToClipboard(key);
+    });
+
+    // ---------- Pricing toggle ----------
+    const toggle = $("#billingToggle");
+    const billingLabel = $("#billingLabel");
+    function setBilling(mode){
+      state.billing = mode;
+      const isYear = mode === "year";
+      billingLabel.textContent = isYear ? "Anual" : "Mensal";
+      toggle.setAttribute("aria-pressed", isYear ? "true" : "false");
+
+      $$(".price").forEach(el=>{
+        const v = isYear ? el.dataset.year : el.dataset.month;
+        el.textContent = v;
+        const suffix = el.parentElement.querySelector(".text-base");
+        if(suffix) suffix.textContent = isYear ? "/mês (cobrado anual)" : "/mês";
+      });
+    }
+    toggle.addEventListener("click", ()=>{
+      setBilling(state.billing === "month" ? "year" : "month");
+      showToast({title:"Faturamento", message:`Modo ${state.billing === "year" ? "anual" : "mensal"} selecionado.`, tone:"info"});
+    });
+    setBilling("month");
+
+    // ---------- Command palette ----------
+    const cmdBackdrop = $("#commandBackdrop");
+    const cmd = $("#command");
+    const cmdInput = $("#commandInput");
+    const cmdList = $("#commandList");
+
+    const actions = [
+      { key: "Como funciona", hint: "Arquitetura e fluxo", icon: "🧩", run: ()=> location.hash = "#como-funciona" },
+      { key: "Recursos", hint: "Features do orquestrador", icon: "✨", run: ()=> location.hash = "#recursos" },
+      { key: "Estratégias", hint: "Policies e roteamento", icon: "🧠", run: ()=> location.hash = "#estrategias" },
+      { key: "SDK", hint: "Exemplos de integração", icon: "🔧", run: ()=> location.hash = "#docs" },
+      { key: "Planos", hint: "Preços e tiers", icon: "💳", run: ()=> location.hash = "#precos" },
+      { key: "Rodar simulação", hint: "Executar demo", icon: "▶", run: ()=> $("#btnRun").click() },
+      { key: "Copiar policy", hint: "JSON de policy engine", icon: "📋", run: ()=> $("#btnCopyPolicy").click() },
+      { key: "Copiar SDK", hint: "Snippet do SDK", icon: "📄", run: ()=> $("#btnCopySdk").click() },
+      { key: "Gerar API Key", hint: "Sandbox", icon: "🔑", run: ()=> $("#btnGenKey").click() },
+    ];
+
+    function renderCommandList(filter=""){
+      const f = filter.trim().toLowerCase();
+      const items = actions.filter(a => (a.key + " " + a.hint).toLowerCase().includes(f));
+      cmdList.innerHTML = "";
+
+      if(items.length === 0){
+        const empty = document.createElement("div");
+        empty.className = "p-4 text-sm text-white/65";
+        empty.textContent = "Nenhum resultado.";
+        cmdList.appendChild(empty);
+        return;
+      }
+
+      items.forEach((a, idx)=>{
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "w-full text-left p-3 rounded-2xl hover:bg-white/5 transition border border-transparent hover:border-white/10 flex items-center justify-between gap-3";
+        row.dataset.index = idx;
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 grid place-items-center text-sm">${a.icon}</div>
+            <div>
+              <div class="font-semibold text-sm">${a.key}</div>
+              <div class="text-xs text-white/60">${a.hint}</div>
+            </div>
+          </div>
+          <div class="kbd">Enter</div>
+        `;
+        row.addEventListener("click", ()=>{
+          closeCommand();
+          a.run();
+        });
+        cmdList.appendChild(row);
+      });
+    }
+
+    function openCommand(){
+      cmdBackdrop.classList.remove("hidden");
+      cmd.classList.remove("hidden");
+      renderCommandList("");
+      setTimeout(()=>{ cmdInput.focus(); cmdInput.select(); }, 30);
+    }
+
+    function closeCommand(){
+      cmdBackdrop.classList.add("hidden");
+      cmd.classList.add("hidden");
+      cmdInput.value = "";
+    }
+
+    $("#btnOpenCommand")?.addEventListener("click", openCommand);
+    $("#btnOpenCommandMobile")?.addEventListener("click", ()=>{ mobileMenu.classList.add("hidden"); openCommand(); });
+    $("#btnOpenCommandFooter")?.addEventListener("click", openCommand);
+    $("#btnCloseCommand").addEventListener("click", closeCommand);
+    cmdBackdrop.addEventListener("click", closeCommand);
+
+    cmdInput.addEventListener("input", (e)=> renderCommandList(e.target.value));
+
+    window.addEventListener("keydown", (e)=>{
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+
+      if(mod && e.key.toLowerCase() === "k"){
+        e.preventDefault();
+        if(cmd.classList.contains("hidden")) openCommand();
+        else closeCommand();
+      }
+      if(e.key === "Escape" && !cmd.classList.contains("hidden")){
+        e.preventDefault();
+        closeCommand();
+      }
+      if(e.key === "Enter" && !cmd.classList.contains("hidden")){
+        const first = cmdList.querySelector("button");
+        if(first) first.click();
+      }
+    });
+
+    // ---------- Lead form ----------
+    $("#leadForm").addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      showToast({
+        title: "Enviado",
+        message: `Obrigado, ${data.name || "!"} Você pode conectar este formulário ao seu backend.`,
+        tone: "ok"
+      });
+      e.target.reset();
+    });
+
+    // ---------- Toast close ----------
+    $("#toastClose").addEventListener("click", ()=> $("#toast").classList.add("hidden"));
+
+    // ---------- Init ----------
+    renderProviders();
+    setActiveButtons();
+    resetLog();
+    $("#year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+{
+  "name": "@layerall/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for scaffolding LayerAll policies and provider configs",
+  "keywords": [
+    "cli",
+    "orchestration",
+    "scaffold",
+    "layerall",
+    "policy",
+    "typescript"
+  ],
+  "author": "Sidarta Veloso <sidartaveloso@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sidartaveloso/layerall.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/sidartaveloso/layerall/issues"
+  },
+  "homepage": "https://github.com/sidartaveloso/layerall#readme",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "layerall": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": { "import": "./dist/cli.js" }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/cli.ts src/index.ts --format esm --dts && cp -R src/templates dist/templates",
+    "dev": "tsup src/cli.ts src/index.ts --format esm --dts --watch",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:no-coverage": "vitest run",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "@layerall/core": "workspace:*",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^2.1.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

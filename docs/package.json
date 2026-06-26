@@ -1,0 +1,20 @@
+{
+  "name": "docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LayerAll documentation site",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "clean": "rm -rf .vitepress/dist .vitepress/cache"
+  },
+  "dependencies": {
+    "@layerall/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitepress": "^1.0.2",
+    "vue": "^3.4.21"
+  }
+}

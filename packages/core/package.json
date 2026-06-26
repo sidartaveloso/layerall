@@ -1,0 +1,59 @@
+{
+  "name": "@layerall/core",
+  "version": "0.1.0",
+  "description": "Orchestration engine for LayerAll — types, routing strategies and provider router with retries and fallback",
+  "keywords": [
+    "orchestration",
+    "abstraction-layer",
+    "router",
+    "failover",
+    "round-robin",
+    "load-balance",
+    "strategies",
+    "typescript"
+  ],
+  "author": "Sidarta Veloso <sidartaveloso@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sidartaveloso/layerall.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/sidartaveloso/layerall/issues"
+  },
+  "homepage": "https://github.com/sidartaveloso/layerall#readme",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:no-coverage": "vitest run",
+    "prepublishOnly": "pnpm build"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
