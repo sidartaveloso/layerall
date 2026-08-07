@@ -52,17 +52,17 @@ const res = await router.execute('create', { externalId: 'req_123', data: {} });
 
 ## Strategies
 
-| Strategy       | Behaviour                                                                                                                                                                                     |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `round_robin`  | Cycles through eligible providers in policy order.                                                                                                                                            |
-| `load_balance` | Weighted random by `Provider.weight` / policy weights.                                                                                                                                        |
-| `most_fast`    | Lowest score = `baseLatency + (1-health)*280 + failRate*420`.                                                                                                                                 |
-| `failover`     | Tries eligible providers in order until one succeeds.                                                                                                                                         |
-| `geo_rule`     | Routes by the payload coordinate against GeoJSON `MultiPolygon` regions (`area` or `volume` with altitude band). Multiple matches fall back to `fallbackStrategy` (`round_robin` by default). |
+| Strategy       | Behaviour                                                                                                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `round_robin`  | Cycles through eligible providers in policy order.                                                                                                                                                     |
+| `load_balance` | Weighted random by `Provider.weight` / policy weights.                                                                                                                                                 |
+| `most_fast`    | Lowest score = `baseLatency + (1-health)*280 + failRate*420`.                                                                                                                                          |
+| `failover`     | Tries eligible providers in order until one succeeds.                                                                                                                                                  |
+| `geo_rule`     | Routes by the payload coordinate against GeoJSON `MultiPolygon` regions; 3D vertices `[lng, lat, alt]` gate the altitude. Multiple matches fall back to `fallbackStrategy` (`round_robin` by default). |
 
 ### Geographic routing (`geo_rule`)
 
-`geo_rule` reads a `[lng, lat, alt?]` position (WGS 84) from `payload.data[field]` and selects the providers of every region whose `MultiPolygon` contains the point. A `volume` region also requires the altitude to fall inside its `[minAltitude, maxAltitude]` band (open bounds are allowed). No region matches → `geo_unmatched`; invalid coordinate or config → `geo_bad_payload`.
+`geo_rule` reads a `[lng, lat, alt?]` position (WGS 84) from `payload.data[field]` and selects the providers of every region whose `MultiPolygon` contains the point. Vertices accept altitude `[lng, lat, alt]`: for a 3D region the point must also fall within the vertical extent of its vertices; for a 2D region only the footprint decides. No region matches → `geo_unmatched`; invalid coordinate → `geo_bad_payload`.
 
 ```ts
 const policy: PolicyDocument = {
@@ -75,12 +75,9 @@ const policy: PolicyDocument = {
           geo: {
             field: 'location',
             rules: [
-              { providers: ['br'], shape: { kind: 'area', multipolygon: brasil } },
-              { providers: ['us'], shape: { kind: 'area', multipolygon: eua } },
-              {
-                providers: ['uav'],
-                shape: { kind: 'volume', multipolygon: zona, minAltitude: 120, maxAltitude: 600 },
-              },
+              { providers: ['br'], multipolygon: brasil },
+              { providers: ['us'], multipolygon: eua },
+              { providers: ['uav'], multipolygon: zonaDeVoo3d },
             ],
             fallbackStrategy: 'most_fast',
           },
@@ -90,5 +87,7 @@ const policy: PolicyDocument = {
   },
 };
 ```
+
+`zonaDeVoo3d` is a `MultiPolygon` whose vertices carry altitude (e.g. 120–600 m).
 
 See the root [README](../../README.md) for the product overview.

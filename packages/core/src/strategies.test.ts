@@ -46,7 +46,7 @@ const ctxFor = (eligible: Provider[], extra: Partial<SelectionContext> = {}): Se
 
 const geoConfig = (over: Partial<GeoRuleConfig> = {}): GeoRuleConfig => ({
   field: 'location',
-  rules: [{ providers: ['br'], shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) } }],
+  rules: [{ providers: ['br'], multipolygon: box(-10, -10, 10, 10) }],
   ...over,
 });
 
@@ -118,8 +118,8 @@ describe('strategies', () => {
         strategy: 'geo_rule',
         geo: geoConfig({
           rules: [
-            { providers: ['slow'], shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) } },
-            { providers: ['fast'], shape: { kind: 'area', multipolygon: box(-5, -5, 15, 15) } },
+            { providers: ['slow'], multipolygon: box(-10, -10, 10, 10) },
+            { providers: ['fast'], multipolygon: box(-5, -5, 15, 15) },
           ],
           fallbackStrategy: 'most_fast',
         }),
@@ -137,8 +137,8 @@ describe('strategies', () => {
         roundRobinIndex: rrIndex,
         geo: geoConfig({
           rules: [
-            { providers: ['a'], shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) } },
-            { providers: ['b'], shape: { kind: 'area', multipolygon: box(-5, -5, 15, 15) } },
+            { providers: ['a'], multipolygon: box(-10, -10, 10, 10) },
+            { providers: ['b'], multipolygon: box(-5, -5, 15, 15) },
           ],
         }),
         payload: { data: { location: [0, 0] } },
@@ -171,8 +171,8 @@ describe('strategies', () => {
       strategy: 'geo_rule',
       geo: geoConfig({
         rules: [
-          { providers: ['br'], shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) } },
-          { providers: ['us'], shape: { kind: 'area', multipolygon: box(-5, -5, 15, 15) } },
+          { providers: ['br'], multipolygon: box(-10, -10, 10, 10) },
+          { providers: ['us'], multipolygon: box(-5, -5, 15, 15) },
         ],
         fallbackStrategy: 'geo_rule',
       }),

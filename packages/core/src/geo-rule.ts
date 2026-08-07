@@ -1,12 +1,6 @@
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import type { MultiPolygon } from 'geojson';
-import type {
-  GeoCoordinate,
-  GeoRuleConfig,
-  GeoShape,
-  OperationPayload,
-  Provider,
-} from './types.js';
+import type { GeoCoordinate, GeoRuleConfig, OperationPayload, Provider } from './types.js';
 
 /** Result of a geographic selection, exhaustive over the four desfechos. */
 export type GeoRuleOutcome =
@@ -27,23 +21,20 @@ export function isGeoCoordinate(value: unknown): value is GeoCoordinate {
   return true;
 }
 
-/** Narrowing guard for a region shape; a volume needs at least one altitude bound. */
-export function isGeoShape(value: unknown): value is GeoShape {
+/** Narrowing guard for a GeoJSON MultiPolygon whose vertices accept altitude. */
+export function isMultiPolygon(value: unknown): value is MultiPolygon {
   if (typeof value !== 'object' || value === null) return false;
-  const shape = value as {
-    kind?: unknown;
-    multipolygon?: unknown;
-    minAltitude?: unknown;
-    maxAltitude?: unknown;
-  };
-  if (shape.kind === 'area') return isMultiPolygon(shape.multipolygon);
-  if (shape.kind !== 'volume') return false;
-  if (!isMultiPolygon(shape.multipolygon)) return false;
-  const min = shape.minAltitude;
-  const max = shape.maxAltitude;
-  if (typeof min === 'number' && typeof max === 'number' && min > max) return false;
-  if (typeof min !== 'number' && typeof max !== 'number') return false;
-  return true;
+  const candidate = value as { type?: unknown; coordinates?: unknown };
+  if (candidate.type !== 'MultiPolygon') return false;
+  if (!Array.isArray(candidate.coordinates)) return false;
+  return candidate.coordinates.every(
+    polygon =>
+      Array.isArray(polygon) &&
+      polygon.every(
+        ring =>
+          Array.isArray(ring) && ring.length >= 4 && ring.every(position => isPosition(position))
+      )
+  );
 }
 
 /**
@@ -61,14 +52,13 @@ export function selectGeoRule(
 
   const pool: Provider[] = [];
   for (const rule of config.rules) {
-    if (!isGeoShape(rule.shape)) return { kind: 'bad_payload' };
-    const inside = booleanPointInPolygon([lng, lat], rule.shape.multipolygon);
+    if (!isMultiPolygon(rule.multipolygon)) return { kind: 'bad_payload' };
+    const inside = booleanPointInPolygon([lng, lat], rule.multipolygon);
     if (!inside) continue;
-    if (rule.shape.kind === 'volume') {
+    const range = altitudeRange(rule.multipolygon);
+    if (range) {
       if (alt === undefined) return { kind: 'bad_payload' };
-      const aboveFloor = alt >= (rule.shape.minAltitude ?? -Infinity);
-      const belowCeiling = alt <= (rule.shape.maxAltitude ?? Infinity);
-      if (!aboveFloor || !belowCeiling) continue;
+      if (alt < range.min || alt > range.max) continue;
     }
     for (const id of rule.providers) {
       const found = eligible.find(p => p.id === id);
@@ -81,24 +71,31 @@ export function selectGeoRule(
   return { kind: 'fallback', pool };
 }
 
-function isMultiPolygon(value: unknown): boolean {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as { type?: unknown; coordinates?: unknown };
-  if (candidate.type !== 'MultiPolygon') return false;
-  if (!Array.isArray(candidate.coordinates)) return false;
-  return candidate.coordinates.every(
-    polygon =>
-      Array.isArray(polygon) &&
-      polygon.every(
-        ring =>
-          Array.isArray(ring) &&
-          ring.length >= 4 &&
-          ring.every(
-            position =>
-              Array.isArray(position) &&
-              position.length >= 2 &&
-              position.every(n => typeof n === 'number')
-          )
-      )
-  );
+function isPosition(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  if (value.length < 2 || value.length > 3) return false;
+  const [lng, lat, alt] = value as unknown[];
+  if (typeof lng !== 'number' || typeof lat !== 'number') return false;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+  if (value.length === 3 && (typeof alt !== 'number' || !Number.isFinite(alt))) return false;
+  return true;
+}
+
+function altitudeRange(multipolygon: MultiPolygon): { min: number; max: number } | null {
+  let min = Infinity;
+  let max = -Infinity;
+  let found = false;
+  for (const polygon of multipolygon.coordinates) {
+    for (const ring of polygon) {
+      for (const position of ring) {
+        const alt = position[2];
+        if (typeof alt === 'number') {
+          found = true;
+          if (alt < min) min = alt;
+          if (alt > max) max = alt;
+        }
+      }
+    }
+  }
+  return found ? { min, max } : null;
 }

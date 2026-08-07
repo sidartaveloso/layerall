@@ -7,19 +7,19 @@ Priority: medium
 
 ## Description
 
-Adicionar a estratégia `geo_rule` ao `@layerall/core`: roteamento por região geográfica. A estratégia lê a coordenada `[lng, lat, alt?]` do payload, testa contra as `GeoShape` GeoJSON configuradas no `OperationPolicy` e seleciona o provider da região. Em `area`, o footprint 2D decide; em `volume`, o footprint 2D **mais a faixa de altitude** decidem (volume real). Quando mais de uma regra casa com a coordenada, a escolha final é delegada a uma `fallbackStrategy` configurável, compondo com as estratégias já existentes.
+Adicionar a estratégia `geo_rule` ao `@layerall/core`: roteamento por região geográfica. A estratégia lê a coordenada `[lng, lat, alt?]` do payload, testa contra os `MultiPolygon` GeoJSON configurados no `OperationPolicy` e seleciona o provider da região. Cada vértice do multipolygon aceita altitude (`[lng, lat, alt]`): para regiões 3D, o ponto precisa estar no footprint **e** ter `alt` dentro da extensão vertical derivada dos próprios vértices. Quando mais de uma regra casa com a coordenada, a escolha final é delegada a uma `fallbackStrategy` configurável, compondo com as estratégias já existentes.
 
 ### Comportamento esperado
 
 1. `geoRule(ctx)` lê `ctx.payload.data[ctx.geo.field]` como `[lng, lat, alt?]` (ordem GeoJSON, altitude em metros)
 2. Testa cada regra em ordem do config:
-   - `area` → `booleanPointInPolygon` do Turf (suporta multipolygon e buracos)
-   - `volume` → mesmo footprint **e** `alt` dentro de `[minAltitude, maxAltitude]` (borda ausente = aberta)
+   - footprint 2D via `booleanPointInPolygon` do Turf (suporta multipolygon e buracos)
+   - se a região tem vértices 3D → `alt` precisa estar em `[minZ, maxZ]` dos vértices; senão a altitude é inerte
 3. Hit único → retorna o provider da regra (se elegível)
 4. Multi-hit → providers das regras em ordem do config, sem duplicatas, filtrando só os `eligible` → `fallbackStrategy` decide o vencedor
 5. Miss → erro `geo_unmatched`
 6. Coordenada ausente/inválida → erro `geo_bad_payload`
-7. Ponto dentro do footprint de uma `volume`, mas payload sem `alt` → erro `geo_bad_payload` (não dá para avaliar a dimensão vertical)
+7. Ponto dentro do footprint de uma região 3D, mas payload sem `alt` → erro `geo_bad_payload` (não dá para avaliar a dimensão vertical)
 8. Guarda de recursão: `fallbackStrategy` nunca é `geo_rule`
 
 ### Discriminated union da seleção
@@ -34,15 +34,7 @@ type GeoRuleOutcome =
   | { kind: 'bad_payload' };
 ```
 
-Cada regra carrega uma `GeoShape` — também união discriminada. `area` é o footprint 2D; `volume` adiciona a dimensão vertical:
-
-```ts
-type GeoShape =
-  | { kind: 'area'; multipolygon: MultiPolygon }
-  | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number };
-```
-
-`selectGeoRule(ctx)` é pura e retorna `GeoRuleOutcome`. O switch sobre `kind` é exaustivo (o compilador garante a cobertura). `geoRule` é o adaptador que mapeia:
+`selectGeoRule(config, payload, eligible)` é pura e retorna `GeoRuleOutcome`. O switch sobre `kind` é exaustivo (o compilador garante a cobertura). `geoRule` é o adaptador que mapeia:
 
 - `hit` → retorna o provider
 - `fallback` → `strategies[fallbackStrategy](subCtx)` sobre o sub-pool
@@ -57,13 +49,11 @@ type GeoShape =
 - [x] coordenada ausente/inválida → `{ kind: 'bad_payload' }`
 - [x] coordenada fora da faixa (`lng` > 180 ou `lat` > 90) → `{ kind: 'bad_payload' }`
 - [x] multipolygon com buraco: ponto no buraco → `{ kind: 'unmatched' }`
-- [x] `volume`: ponto no footprint e `alt` dentro da faixa → `{ kind: 'hit', provider }`
-- [x] `volume`: ponto no footprint, `alt` abaixo de `minAltitude` → não casa (segue para a próxima regra)
-- [x] `volume`: ponto no footprint, `alt` acima de `maxAltitude` → não casa
-- [x] `volume` com `minAltitude` ausente → aceita qualquer altitude acima do chão
-- [x] `volume`: ponto no footprint mas payload sem `alt` → `{ kind: 'bad_payload' }`
-- [x] `volume` com `minAltitude` e `maxAltitude` ausentes → `{ kind: 'bad_payload' }` (config inválida, volume exige ao menos uma borda)
-- [x] `volume` com `minAltitude` > `maxAltitude` → `{ kind: 'bad_payload' }`
+- [x] região 3D (vértices com `alt`): ponto no footprint e `alt` dentro de `[minZ, maxZ]` dos vértices → `{ kind: 'hit', provider }`
+- [x] região 3D: ponto no footprint, `alt` acima de todo vértice → não casa (segue para a próxima regra)
+- [x] região 3D: ponto no footprint, `alt` abaixo de todo vértice → não casa
+- [x] região 3D: ponto no footprint mas payload sem `alt` → `{ kind: 'bad_payload' }`
+- [x] região 2D: ponto com `alt` → footprint decide (altitude inerte)
 - [x] duas regras sobrepostas → `{ kind: 'fallback', pool }` com providers na ordem do config e sem duplicatas
 - [x] `geoRule` delega a `fallbackStrategy` (ex.: `most_fast`) e retorna `Provider`
 - [x] `geoRule` lança `GeoRuleError` com `code` discriminado
@@ -84,14 +74,13 @@ type GeoShape =
     field: string;
     rules: Array<{
       providers: string[];
-      shape: GeoShape;
+      multipolygon: MultiPolygon;
     }>;
     fallbackStrategy?: StrategyName;
   }
   ```
-- [x] `GeoShape = { kind: 'area'; multipolygon: MultiPolygon } | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number }`
-- [x] Type guard `isGeoShape(value): value is GeoShape` (volume exige ao menos uma borda; `minAltitude` ≤ `maxAltitude`)
 - [x] `GeoCoordinate = [lng: number, lat: number, alt?: number]` (tupla nomeada)
+- [x] Type guard `isMultiPolygon(value): value is MultiPolygon` com vértices `[lng, lat, alt?]`
 - [x] Type guard `isGeoCoordinate(value): value is GeoCoordinate` com faixa de lng/lat e altitude em metros
 - [x] `GeoRuleError extends Error` com `code: GeoErrorCode`
 
@@ -134,7 +123,7 @@ Escrever os testes de `selectGeoRule` e `geoRule` **antes** da implementação. 
 ### Discriminated unions
 
 - `GeoRuleOutcome` força o tratamento exaustivo dos quatro desfechos: o `switch` sem `default` falha no tipo se um caso novo surgir.
-- `GeoShape` discrimina `area` de `volume` no próprio tipo: a avaliação de altitude só existe no braço `volume`, e o switch exaustivo obriga decidir o que cada `kind` faz. `minAltitude`/`maxAltitude` opcionais codificam bandas abertas sem estado inválido no tipo.
+- A região é um `MultiPolygon` GeoJSON puro — sem union de shape nem `kind`. A dimensão 3D vem das próprias coordenadas dos vértices (`[lng, lat, alt]`), não de um campo de config.
 - `GeoErrorCode` é a fonte única dos códigos de erro propagados ao `OperationResult`, evitando strings soltas.
 - A coordenada é tipada como `GeoCoordinate = [lng: number, lat: number, alt?: number]` (tupla nomeada), nunca objeto `{ lat, lng }`.
 
@@ -142,15 +131,16 @@ Escrever os testes de `selectGeoRule` e `geoRule` **antes** da implementação. 
 
 Código deve ser auto-documentado: nomes precisos e tipos expressivos no lugar de comentários. Se uma parte precisa de comentário para ser entendida, refatorar até o nome/tipo carregar o significado. Exemplos de código nesta task seguem essa regra.
 
-### Sistema de coordenadas
+### Sistema de coordenadas e dimensão 3D
 
 GeoJSON (RFC 7946) já padroniza o sistema: **WGS 84 (EPSG:4326)**, posição `[lng, lat, alt?]`, e o padrão proíbe membro `crs`. Não inventamos convenção nem config — a estratégia sempre recebe WGS 84.
 
 - O payload entrega a coordenada em `ctx.payload.data[field]` como `[lng, lat, alt?]`; o footprint `[lng, lat]` é passado direto ao `booleanPointInPolygon` sem conversão.
 - Faixa válida: `lng` em [-180, 180] e `lat` em [-90, 90]. Fora da faixa → `{ kind: 'bad_payload' }`.
-- Altitude e faixas verticais em **metros** (unidade do eixo z do GeoJSON).
-- O footprint é testado com Turf (planar). A dimensão vertical é avaliada no próprio core: `alt >= (minAltitude ?? -Infinity) && alt <= (maxAltitude ?? +Infinity)`. O volume resultante é um prisma vertical sobre o footprint — o mesmo modelo de geofencing aéreo/drones da indústria (ex.: FAA/DJI usam footprint 2D + faixa vertical).
-- Sem nova dep para 3D: a verificação vertical é aritmética; volume real não exige lib de geometria 3D.
+- Altitude em **metros** (unidade do eixo z do GeoJSON).
+- Os **vértices** do multipolygon aceitam altitude (`[lng, lat, alt]`). Se a região tem vértices 3D, a dimensão vertical é avaliada no core contra a extensão dos próprios vértices: `alt >= minZ && alt <= maxZ`, onde `minZ`/`maxZ` são derivados das posições. Sem config extra — a altitude é parte da geometria.
+- Região 2D (vértices sem `alt`) → só o footprint decide; `alt` do ponto é inerte.
+- Não há lib mainstream de point-in-polygon 3D; o ecossistema (Turf, point-in-polygon, math.gl) é planar. Por isso o footprint usa Turf e a dimensão vertical deriva dos vértices.
 
 ### Exemplo de config
 
@@ -171,17 +161,9 @@ const router = new Router({
             geo: {
               field: 'location',
               rules: [
-                { providers: ['br'], shape: { kind: 'area', multipolygon: brasilMultipolygon } },
-                { providers: ['us'], shape: { kind: 'area', multipolygon: euaMultipolygon } },
-                {
-                  providers: ['uav'],
-                  shape: {
-                    kind: 'volume',
-                    multipolygon: zonaDeVoo,
-                    minAltitude: 120,
-                    maxAltitude: 600,
-                  },
-                },
+                { providers: ['br'], multipolygon: brasilMultipolygon },
+                { providers: ['us'], multipolygon: euaMultipolygon },
+                { providers: ['uav'], multipolygon: zonaDeVoo3d },
               ],
               fallbackStrategy: 'most_fast',
             },
@@ -193,7 +175,7 @@ const router = new Router({
 });
 ```
 
-Coordenada em São Paulo → `br`; em Nova York → `us`; dentro do footprint de `zonaDeVoo` a 300 m → `uav`; no mesmo footprint a 1.000 m (acima de `maxAltitude`) → não casa; em nenhuma regra → `OperationResult` failed com `code: 'geo_unmatched'`.
+`zonaDeVoo3d` é um `MultiPolygon` com vértices `[lng, lat, alt]` (ex.: 120 m a 600 m). Coordenada em São Paulo → `br`; em Nova York → `us`; dentro do footprint de `zonaDeVoo3d` a 300 m → `uav`; no mesmo footprint a 1.000 m (acima de todo vértice) → não casa; em nenhuma regra → `OperationResult` failed com `code: 'geo_unmatched'`.
 
 ### Referências
 
@@ -205,8 +187,8 @@ Coordenada em São Paulo → `br`; em Nova York → `us`; dentro do footprint de
 
 ### Arquivos alterados
 
-- `packages/core/src/types.ts` — `StrategyName` + `geo_rule`, `GeoCoordinate`, `GeoShape`, `GeoRuleConfig`, `OperationPolicy.geo?`, `GeoErrorCode`, `GeoRuleError`
-- `packages/core/src/geo-rule.ts` — (novo) `isGeoCoordinate`, `isGeoShape`, `selectGeoRule` (puro)
+- `packages/core/src/types.ts` — `StrategyName` + `geo_rule`, `GeoCoordinate`, `GeoRuleConfig`, `OperationPolicy.geo?`, `GeoErrorCode`, `GeoRuleError`
+- `packages/core/src/geo-rule.ts` — (novo) `isGeoCoordinate`, `isMultiPolygon`, `selectGeoRule` (puro, altitude dos vértices)
 - `packages/core/src/strategies.ts` — `SelectionContext.payload`/`geo?`, adaptador `geoRule`, registro em `strategies`
 - `packages/core/src/router.ts` — passa `payload`/`geo` ao ctx, captura `GeoRuleError` → `fail(code)`
 - `packages/core/src/geo-rule.test.ts` — (novo) testes de guards + `selectGeoRule`

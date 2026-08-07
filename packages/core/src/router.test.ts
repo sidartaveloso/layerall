@@ -153,8 +153,8 @@ describe('Router geo_rule', () => {
             geo: {
               field: 'location',
               rules: [
-                { providers: ['br'], shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) } },
-                { providers: ['us'], shape: { kind: 'area', multipolygon: box(20, 20, 40, 40) } },
+                { providers: ['br'], multipolygon: box(-10, -10, 10, 10) },
+                { providers: ['us'], multipolygon: box(20, 20, 40, 40) },
               ],
             },
           },
@@ -199,14 +199,8 @@ describe('Router geo_rule', () => {
                 geo: {
                   field: 'location',
                   rules: [
-                    {
-                      providers: ['slow'],
-                      shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) },
-                    },
-                    {
-                      providers: ['fast'],
-                      shape: { kind: 'area', multipolygon: box(-5, -5, 15, 15) },
-                    },
+                    { providers: ['slow'], multipolygon: box(-10, -10, 10, 10) },
+                    { providers: ['fast'], multipolygon: box(-5, -5, 15, 15) },
                   ],
                   fallbackStrategy: 'most_fast',
                 },

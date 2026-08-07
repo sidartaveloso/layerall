@@ -94,22 +94,19 @@ export interface OperationPolicy {
 export type GeoCoordinate = [lng: number, lat: number, alt?: number];
 
 /**
- * Region shape. `area` matches on the 2D footprint only; `volume` also requires
- * the point altitude to fall inside `[minAltitude, maxAltitude]` (a missing
- * bound is open-ended). A `volume` must declare at least one bound.
+ * Geographic routing rules keyed by the `geo_rule` strategy. Each rule holds a
+ * GeoJSON `MultiPolygon` whose vertices may carry altitude `[lng, lat, alt]`.
+ * A point is inside the region when its footprint is inside the polygon and,
+ * for 3D regions, its altitude falls within the vertical extent of the vertices.
  */
-export type GeoShape =
-  | { kind: 'area'; multipolygon: MultiPolygon }
-  | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number };
-
-/** Geographic routing rules keyed by the `geo_rule` strategy. */
 export interface GeoRuleConfig {
   /** Key in `payload.data` holding a `GeoCoordinate`. */
   field: string;
   rules: Array<{
     /** Provider ids served by this region, in priority order. */
     providers: string[];
-    shape: GeoShape;
+    /** GeoJSON MultiPolygon; vertices accept `[lng, lat, alt?]`. */
+    multipolygon: MultiPolygon;
   }>;
   /** Strategy applied among the providers of every matched rule (default `round_robin`). */
   fallbackStrategy?: StrategyName;
