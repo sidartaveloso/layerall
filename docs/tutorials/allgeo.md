@@ -78,7 +78,10 @@ export const googleMaps: Provider = {
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
     );
     if (!res.ok) throw upstreamError(`HTTP ${res.status}`);
-    const json = await res.json() as { status: string; results: Array<{ formatted_address: string }> };
+    const json = (await res.json()) as {
+      status: string;
+      results: Array<{ formatted_address: string }>;
+    };
     if (json.status !== 'OK') throw upstreamError(`google status: ${json.status}`);
     return { address: json.results[0]?.formatted_address ?? null };
   },
@@ -107,7 +110,7 @@ export const nominatim: Provider = {
       { headers: { 'User-Agent': 'AllGeo/1.0' } }
     );
     if (!res.ok) throw upstreamError(`HTTP ${res.status}`);
-    const json = await res.json() as { display_name?: string; error?: string };
+    const json = (await res.json()) as { display_name?: string; error?: string };
     if (json.error) throw upstreamError(json.error);
     return { address: json.display_name ?? null };
   },
@@ -135,7 +138,7 @@ export const mapbox: Provider = {
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${process.env.MAPBOX_TOKEN}`
     );
     if (!res.ok) throw upstreamError(`HTTP ${res.status}`);
-    const json = await res.json() as { features: Array<{ place_name: string }> };
+    const json = (await res.json()) as { features: Array<{ place_name: string }> };
     return { address: json.features[0]?.place_name ?? null };
   },
 };
@@ -145,7 +148,7 @@ function upstreamError(message: string) {
 }
 ```
 
-> Repare que os três retornam `{ address: string | null }` — o contrato é unificado. O cliente nunca vê a diferença entre as APIs.
+> Repare que os três retornam `{ address: string | null }` em caso de sucesso — o **formato do resultado** é unificado. Apesar disso, o cliente ainda enxerga por trás: qual `provider` respondeu, `latencyMs`, `attempts` e o erro normalizado em `OperationResult.error` quando algo falha (ex.: `upstream_error`, `geo_unmatched`, `all_failed`, dependendo da estratégia).
 
 ## 4. Policy
 
@@ -159,10 +162,10 @@ export const policy: PolicyDocument = {
       providers: ['google', 'nominatim', 'mapbox'],
       operations: {
         reverse: {
-          strategy: 'most_fast',       // usa o provedor mais rápido
+          strategy: 'most_fast', // usa o provedor mais rápido
           timeoutMs: 5000,
           retries: { max: 1, backoffMs: 300 },
-          failover: true,               // testa google → nominatim → mapbox se falhar
+          failover: true, // testa google → nominatim → mapbox se falhar
         },
       },
     },
@@ -192,10 +195,14 @@ const router = new Router({
   policy,
   observer: {
     onAttempt(log) {
-      console.log(`[${log.provider}] tentativa #${log.attempt}: ${log.ok ? 'OK' : 'FALHA'} (${log.latencyMs}ms)`);
+      console.log(
+        `[${log.provider}] tentativa #${log.attempt}: ${log.ok ? 'OK' : 'FALHA'} (${log.latencyMs}ms)`
+      );
     },
     onFinish(res) {
-      console.log(`→ ${res.status} | via ${res.provider} | ${res.latencyMs}ms | receipt=${res.providerReceipt}`);
+      console.log(
+        `→ ${res.status} | via ${res.provider} | ${res.latencyMs}ms | receipt=${res.providerReceipt}`
+      );
     },
   },
 });
