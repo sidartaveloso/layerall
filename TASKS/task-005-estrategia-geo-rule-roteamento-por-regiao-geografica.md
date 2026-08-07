@@ -7,17 +7,20 @@ Priority: medium
 
 ## Description
 
-Adicionar a estratégia `geo_rule` ao `@layerall/core`: roteamento por região geográfica. A estratégia lê a coordenada `[lng, lat]` do payload, testa contra os `MultiPolygon` GeoJSON configurados no `OperationPolicy` e seleciona o provider da região. Quando mais de uma regra casa com a coordenada, a escolha final é delegada a uma `fallbackStrategy` configurável, compondo com as estratégias já existentes.
+Adicionar a estratégia `geo_rule` ao `@layerall/core`: roteamento por região geográfica. A estratégia lê a coordenada `[lng, lat, alt?]` do payload, testa contra as `GeoShape` GeoJSON configuradas no `OperationPolicy` e seleciona o provider da região. Em `area`, o footprint 2D decide; em `volume`, o footprint 2D **mais a faixa de altitude** decidem (volume real). Quando mais de uma regra casa com a coordenada, a escolha final é delegada a uma `fallbackStrategy` configurável, compondo com as estratégias já existentes.
 
 ### Comportamento esperado
 
-1. `geoRule(ctx)` lê `ctx.payload.data[ctx.geo.field]` como `[lng, lat]` (ordem GeoJSON)
-2. Testa cada regra com `booleanPointInPolygon` do Turf (suporta multipolygon e buracos)
+1. `geoRule(ctx)` lê `ctx.payload.data[ctx.geo.field]` como `[lng, lat, alt?]` (ordem GeoJSON, altitude em metros)
+2. Testa cada regra em ordem do config:
+   - `area` → `booleanPointInPolygon` do Turf (suporta multipolygon e buracos)
+   - `volume` → mesmo footprint **e** `alt` dentro de `[minAltitude, maxAltitude]` (borda ausente = aberta)
 3. Hit único → retorna o provider da regra (se elegível)
 4. Multi-hit → providers das regras em ordem do config, sem duplicatas, filtrando só os `eligible` → `fallbackStrategy` decide o vencedor
 5. Miss → erro `geo_unmatched`
 6. Coordenada ausente/inválida → erro `geo_bad_payload`
-7. Guarda de recursão: `fallbackStrategy` nunca é `geo_rule`
+7. Ponto dentro do footprint de uma `volume`, mas payload sem `alt` → erro `geo_bad_payload` (não dá para avaliar a dimensão vertical)
+8. Guarda de recursão: `fallbackStrategy` nunca é `geo_rule`
 
 ### Discriminated union da seleção
 
@@ -31,6 +34,14 @@ type GeoRuleOutcome =
   | { kind: 'bad_payload' };
 ```
 
+Cada regra carrega uma `GeoShape` — também união discriminada. `area` é o footprint 2D; `volume` adiciona a dimensão vertical:
+
+```ts
+type GeoShape =
+  | { kind: 'area'; multipolygon: MultiPolygon }
+  | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number };
+```
+
 `selectGeoRule(ctx)` é pura e retorna `GeoRuleOutcome`. O switch sobre `kind` é exaustivo (o compilador garante a cobertura). `geoRule` é o adaptador que mapeia:
 
 - `hit` → retorna o provider
@@ -41,10 +52,18 @@ type GeoRuleOutcome =
 
 ### 1. Testes primeiro (TDD — red/green)
 
-- [ ] `selectGeoRule` com ponto dentro do multipolygon → `{ kind: 'hit', provider }`
+- [ ] `selectGeoRule` com ponto dentro do footprint de `area` → `{ kind: 'hit', provider }`
 - [ ] ponto fora de todas as regras → `{ kind: 'unmatched' }`
 - [ ] coordenada ausente/inválida → `{ kind: 'bad_payload' }`
+- [ ] coordenada fora da faixa (`lng` > 180 ou `lat` > 90) → `{ kind: 'bad_payload' }`
 - [ ] multipolygon com buraco: ponto no buraco → `{ kind: 'unmatched' }`
+- [ ] `volume`: ponto no footprint e `alt` dentro da faixa → `{ kind: 'hit', provider }`
+- [ ] `volume`: ponto no footprint, `alt` abaixo de `minAltitude` → não casa (segue para a próxima regra)
+- [ ] `volume`: ponto no footprint, `alt` acima de `maxAltitude` → não casa
+- [ ] `volume` com `minAltitude` ausente → aceita qualquer altitude acima do chão
+- [ ] `volume`: ponto no footprint mas payload sem `alt` → `{ kind: 'bad_payload' }`
+- [ ] `volume` com `minAltitude` e `maxAltitude` ausentes → `{ kind: 'bad_payload' }` (config inválida, volume exige ao menos uma borda)
+- [ ] `volume` com `minAltitude` > `maxAltitude` → `{ kind: 'bad_payload' }`
 - [ ] duas regras sobrepostas → `{ kind: 'fallback', pool }` com providers na ordem do config e sem duplicatas
 - [ ] `geoRule` delega a `fallbackStrategy` (ex.: `most_fast`) e retorna `Provider`
 - [ ] `geoRule` lança `GeoRuleError` com `code` discriminado
@@ -65,11 +84,15 @@ type GeoRuleOutcome =
     field: string;
     rules: Array<{
       providers: string[];
-      multipolygon: MultiPolygon;
+      shape: GeoShape;
     }>;
     fallbackStrategy?: StrategyName;
   }
   ```
+- [ ] `GeoShape = { kind: 'area'; multipolygon: MultiPolygon } | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number }`
+- [ ] Type guard `isGeoShape(value): value is GeoShape` (volume exige ao menos uma borda; `minAltitude` ≤ `maxAltitude`)
+- [ ] `GeoCoordinate = [lng: number, lat: number, alt?: number]` (tupla nomeada)
+- [ ] Type guard `isGeoCoordinate(value): value is GeoCoordinate` com faixa de lng/lat e altitude em metros
 - [ ] `GeoRuleError extends Error` com `code: GeoErrorCode`
 
 ### 4. Estratégia (`packages/core/src/strategies.ts`)
@@ -111,16 +134,23 @@ Escrever os testes de `selectGeoRule` e `geoRule` **antes** da implementação. 
 ### Discriminated unions
 
 - `GeoRuleOutcome` força o tratamento exaustivo dos quatro desfechos: o `switch` sem `default` falha no tipo se um caso novo surgir.
+- `GeoShape` discrimina `area` de `volume` no próprio tipo: a avaliação de altitude só existe no braço `volume`, e o switch exaustivo obriga decidir o que cada `kind` faz. `minAltitude`/`maxAltitude` opcionais codificam bandas abertas sem estado inválido no tipo.
 - `GeoErrorCode` é a fonte única dos códigos de erro propagados ao `OperationResult`, evitando strings soltas.
-- A coordenada é tipada como `[lng: number, lat: number]` (tupla nomeada), nunca objeto `{ lat, lng }`.
+- A coordenada é tipada como `GeoCoordinate = [lng: number, lat: number, alt?: number]` (tupla nomeada), nunca objeto `{ lat, lng }`.
 
 ### Sem comentários
 
 Código deve ser auto-documentado: nomes precisos e tipos expressivos no lugar de comentários. Se uma parte precisa de comentário para ser entendida, refatorar até o nome/tipo carregar o significado. Exemplos de código nesta task seguem essa regra.
 
-### GeoJSON `[lng, lat]`
+### Sistema de coordenadas
 
-Turf e GeoJSON usam `[lng, lat]`, não `{ lat, lng }`. O payload entrega a coordenada em `ctx.payload.data[field]` já em `[lng, lat]`, passada direto ao `booleanPointInPolygon` sem conversão.
+GeoJSON (RFC 7946) já padroniza o sistema: **WGS 84 (EPSG:4326)**, posição `[lng, lat, alt?]`, e o padrão proíbe membro `crs`. Não inventamos convenção nem config — a estratégia sempre recebe WGS 84.
+
+- O payload entrega a coordenada em `ctx.payload.data[field]` como `[lng, lat, alt?]`; o footprint `[lng, lat]` é passado direto ao `booleanPointInPolygon` sem conversão.
+- Faixa válida: `lng` em [-180, 180] e `lat` em [-90, 90]. Fora da faixa → `{ kind: 'bad_payload' }`.
+- Altitude e faixas verticais em **metros** (unidade do eixo z do GeoJSON).
+- O footprint é testado com Turf (planar). A dimensão vertical é avaliada no próprio core: `alt >= (minAltitude ?? -Infinity) && alt <= (maxAltitude ?? +Infinity)`. O volume resultante é um prisma vertical sobre o footprint — o mesmo modelo de geofencing aéreo/drones da indústria (ex.: FAA/DJI usam footprint 2D + faixa vertical).
+- Sem nova dep para 3D: a verificação vertical é aritmética; volume real não exige lib de geometria 3D.
 
 ### Exemplo de config
 
@@ -129,19 +159,21 @@ const router = new Router({
   providers: {
     br: { id: 'br', invoke },
     us: { id: 'us', invoke },
+    uav: { id: 'uav', invoke },
   },
   policy: {
     tenants: {
       default: {
-        providers: ['br', 'us'],
+        providers: ['br', 'us', 'uav'],
         operations: {
           create: {
             strategy: 'geo_rule',
             geo: {
               field: 'location',
               rules: [
-                { providers: ['br'], multipolygon: brasilMultipolygon },
-                { providers: ['us'], multipolygon: euaMultipolygon },
+                { providers: ['br'], shape: { kind: 'area', multipolygon: brasilMultipolygon } },
+                { providers: ['us'], shape: { kind: 'area', multipolygon: euaMultipolygon } },
+                { providers: ['uav'], shape: { kind: 'volume', multipolygon: zonaDeVoo, minAltitude: 120, maxAltitude: 600 } },
               ],
               fallbackStrategy: 'most_fast',
             },
@@ -153,7 +185,7 @@ const router = new Router({
 });
 ```
 
-Coordenada em São Paulo → `br`; em Nova York → `us`; coordenada em nenhum dos dois → `OperationResult` failed com `code: 'geo_unmatched'`.
+Coordenada em São Paulo → `br`; em Nova York → `us`; dentro do footprint de `zonaDeVoo` a 300 m → `uav`; no mesmo footprint a 1.000 m (acima de `maxAltitude`) → não casa; em nenhuma regra → `OperationResult` failed com `code: 'geo_unmatched'`.
 
 ### Referências
 
