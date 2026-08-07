@@ -35,14 +35,17 @@ Um Provider é um objeto com um método `invoke`. Exemplo com geocode reverso:
 ```ts
 import type { Provider } from '@layerall/core';
 
-const googleMaps: Provider = {
+type GeocodePos = { lat: number; lng: number };
+type GeocodeResult = { address?: string };
+
+const googleMaps: Provider<GeocodePos, GeocodeResult> = {
   id: 'google',
   weight: 50,
   health: 0.98,
   baseLatency: 180,
   failRate: 0.04,
   async invoke(ctx) {
-    const { lat, lng } = ctx.payload.data as { lat: number; lng: number };
+    const { lat, lng } = ctx.payload.data;
     const res = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_KEY}`
     );
@@ -52,14 +55,14 @@ const googleMaps: Provider = {
   },
 };
 
-const nominatim: Provider = {
+const nominatim: Provider<GeocodePos, GeocodeResult> = {
   id: 'nominatim',
   weight: 30,
   health: 0.92,
   baseLatency: 320,
   failRate: 0.08,
   async invoke(ctx) {
-    const { lat, lng } = ctx.payload.data as { lat: number; lng: number };
+    const { lat, lng } = ctx.payload.data;
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
       {

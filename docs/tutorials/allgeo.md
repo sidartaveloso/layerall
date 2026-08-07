@@ -66,14 +66,17 @@ Cada provedor traduz o contrato `reverse` para a API específica.
 ```ts
 import type { Provider } from '@layerall/core';
 
-export const googleMaps: Provider = {
+type GeocodePos = { lat: number; lng: number };
+type GeocodeResult = { address: string | null };
+
+export const googleMaps: Provider<GeocodePos, GeocodeResult> = {
   id: 'google',
   weight: 50,
   health: 0.98,
   baseLatency: 180,
   failRate: 0.03,
   async invoke(ctx) {
-    const { lat, lng } = ctx.payload.data as { lat: number; lng: number };
+    const { lat, lng } = ctx.payload.data;
     const res = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_API_KEY}`
     );
@@ -97,14 +100,17 @@ function upstreamError(message: string) {
 ```ts
 import type { Provider } from '@layerall/core';
 
-export const nominatim: Provider = {
+type GeocodePos = { lat: number; lng: number };
+type GeocodeResult = { address: string | null };
+
+export const nominatim: Provider<GeocodePos, GeocodeResult> = {
   id: 'nominatim',
   weight: 30,
   health: 0.92,
   baseLatency: 320,
   failRate: 0.07,
   async invoke(ctx) {
-    const { lat, lng } = ctx.payload.data as { lat: number; lng: number };
+    const { lat, lng } = ctx.payload.data;
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
       { headers: { 'User-Agent': 'AllGeo/1.0' } }
@@ -126,14 +132,17 @@ function upstreamError(message: string) {
 ```ts
 import type { Provider } from '@layerall/core';
 
-export const mapbox: Provider = {
+type GeocodePos = { lat: number; lng: number };
+type GeocodeResult = { address: string | null };
+
+export const mapbox: Provider<GeocodePos, GeocodeResult> = {
   id: 'mapbox',
   weight: 20,
   health: 0.95,
   baseLatency: 150,
   failRate: 0.05,
   async invoke(ctx) {
-    const { lat, lng } = ctx.payload.data as { lat: number; lng: number };
+    const { lat, lng } = ctx.payload.data;
     const res = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${process.env.MAPBOX_TOKEN}`
     );
