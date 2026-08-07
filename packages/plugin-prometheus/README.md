@@ -12,12 +12,12 @@ npm install @layerall/core @layerall/plugin-prometheus prom-client
 
 ## Métricas expostas
 
-| Métrica | Tipo | Labels |
-|---|---|---|
-| `layerall_requests_total`   | Counter   | `provider`, `operation`, `status` |
-| `layerall_latency_seconds`   | Histogram | `provider`, `operation` |
-| `layerall_attempts_total`   | Counter   | `provider`, `operation`, `result` |
-| `layerall_errors_total`      | Counter   | `provider`, `code` |
+| Métrica                    | Tipo      | Labels                            |
+| -------------------------- | --------- | --------------------------------- |
+| `layerall_requests_total`  | Counter   | `provider`, `operation`, `status` |
+| `layerall_latency_seconds` | Histogram | `provider`, `operation`           |
+| `layerall_attempts_total`  | Counter   | `provider`, `operation`, `result` |
+| `layerall_errors_total`    | Counter   | `provider`, `code`                |
 
 O prefixo `layerall_` é configurável (`prefix: 'allx_'`).
 

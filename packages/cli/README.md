@@ -43,17 +43,22 @@ Schema:
 
 ```jsonc
 {
-  "product": "AllGeo",                     // required
+  "product": "AllGeo", // required
   "tagline": "Geocode reverso unificado", // required
-  "domain": "geocode reverso",            // required
-  "operations": ["reverse", "batch"],      // required
+  "domain": "geocode reverso", // required
+  "operations": ["reverse", "batch"], // required
   "strategies": ["round_robin", "most_fast", "failover"], // required
-  "providers": [                            // required (≥1)
-    { "name": "Google Maps", "weight": 50, "latency": 180, "health": 0.98 }
+  "providers": [
+    // required (≥1)
+    { "name": "Google Maps", "weight": 50, "latency": 180, "health": 0.98 },
   ],
-  "sdkExamples": { /* "node" | "python" | "curl": "..." */ }, // optional
-  "pricing":   { /* "<tier>": { "price": "...", "requests": "...", "providers": number | "ilimitado", "features": ["..."] } */ }, // optional
-  "cta":       { "email": "geo@allx.com" }  // optional
+  "sdkExamples": {
+    /* "node" | "python" | "curl": "..." */
+  }, // optional
+  "pricing": {
+    /* "<tier>": { "price": "...", "requests": "...", "providers": number | "ilimitado", "features": ["..."] } */
+  }, // optional
+  "cta": { "email": "geo@allx.com" }, // optional
 }
 ```
 

@@ -82,7 +82,10 @@ const observer = {
   },
   onFinish(res) {
     requestsTotal.inc({ provider: res.provider, operation: res.operation, status: res.status });
-    latencyHistogram.observe({ provider: res.provider, operation: res.operation }, res.latencyMs / 1000);
+    latencyHistogram.observe(
+      { provider: res.provider, operation: res.operation },
+      res.latencyMs / 1000
+    );
   },
 };
 ```

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  validateLandingConfig,
-  renderLanding,
-  defaultLandingConfig,
-} from './landing.js';
+import { validateLandingConfig, renderLanding, defaultLandingConfig } from './landing.js';
 
 describe('validateLandingConfig', () => {
   it('accepts the default config', () => {
@@ -19,7 +15,11 @@ describe('validateLandingConfig', () => {
   });
 
   it('flags missing required strings', () => {
-    const r = validateLandingConfig({ operations: ['create'], strategies: ['round_robin'], providers: [{ name: 'A' }] });
+    const r = validateLandingConfig({
+      operations: ['create'],
+      strategies: ['round_robin'],
+      providers: [{ name: 'A' }],
+    });
     expect(r.ok).toBe(false);
     const paths = r.issues.map(i => i.path).sort();
     expect(paths).toContain('product');
@@ -29,8 +29,11 @@ describe('validateLandingConfig', () => {
 
   it('flags unknown strategies', () => {
     const r = validateLandingConfig({
-      product: 'AllX', tagline: 't', domain: 'd',
-      operations: ['create'], strategies: ['random'],
+      product: 'AllX',
+      tagline: 't',
+      domain: 'd',
+      operations: ['create'],
+      strategies: ['random'],
       providers: [{ name: 'A' }],
     });
     expect(r.ok).toBe(false);
@@ -39,8 +42,12 @@ describe('validateLandingConfig', () => {
 
   it('flags empty arrays', () => {
     const r = validateLandingConfig({
-      product: 'AllX', tagline: 't', domain: 'd',
-      operations: [], strategies: ['round_robin'], providers: [],
+      product: 'AllX',
+      tagline: 't',
+      domain: 'd',
+      operations: [],
+      strategies: ['round_robin'],
+      providers: [],
     });
     expect(r.ok).toBe(false);
     const paths = r.issues.map(i => i.path);
@@ -50,8 +57,11 @@ describe('validateLandingConfig', () => {
 
   it('flags provider health outside [0,1]', () => {
     const r = validateLandingConfig({
-      product: 'AllX', tagline: 't', domain: 'd',
-      operations: ['create'], strategies: ['round_robin'],
+      product: 'AllX',
+      tagline: 't',
+      domain: 'd',
+      operations: ['create'],
+      strategies: ['round_robin'],
       providers: [{ name: 'A', health: 1.4 }],
     });
     expect(r.ok).toBe(false);
@@ -60,8 +70,11 @@ describe('validateLandingConfig', () => {
 
   it('flags invalid sdkExamples keys', () => {
     const r = validateLandingConfig({
-      product: 'AllX', tagline: 't', domain: 'd',
-      operations: ['create'], strategies: ['round_robin'],
+      product: 'AllX',
+      tagline: 't',
+      domain: 'd',
+      operations: ['create'],
+      strategies: ['round_robin'],
       providers: [{ name: 'A' }],
       sdkExamples: { ruby: 'foo' },
     });
@@ -71,8 +84,11 @@ describe('validateLandingConfig', () => {
 
   it('flags pricing with wrong providers shape', () => {
     const r = validateLandingConfig({
-      product: 'AllX', tagline: 't', domain: 'd',
-      operations: ['create'], strategies: ['round_robin'],
+      product: 'AllX',
+      tagline: 't',
+      domain: 'd',
+      operations: ['create'],
+      strategies: ['round_robin'],
       providers: [{ name: 'A' }],
       pricing: { pro: { providers: 'many' } },
     });
@@ -82,8 +98,11 @@ describe('validateLandingConfig', () => {
 
   it('accepts minimal valid config without optional fields', () => {
     const r = validateLandingConfig({
-      product: 'AllGeo', tagline: 'geocoding', domain: 'geo',
-      operations: ['reverse'], strategies: ['most_fast'],
+      product: 'AllGeo',
+      tagline: 'geocoding',
+      domain: 'geo',
+      operations: ['reverse'],
+      strategies: ['most_fast'],
       providers: [{ name: 'Google' }, { name: 'Mapbox' }],
     });
     expect(r.ok).toBe(true);

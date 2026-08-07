@@ -3,11 +3,7 @@ import { Command } from 'commander';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { buildPolicy, validatePolicy } from './policy.js';
-import {
-  defaultLandingConfig,
-  renderLanding,
-  validateLandingConfig,
-} from './landing.js';
+import { defaultLandingConfig, renderLanding, validateLandingConfig } from './landing.js';
 
 const program = new Command();
 
@@ -22,8 +18,11 @@ program
   .option('-o, --out <path>', 'output file', 'layerall.policy.json')
   .option('-p, --providers <ids>', 'comma-separated provider ids', 'providerA,providerB,providerC')
   .option('-w, --weights <pairs>', 'comma-separated id=weight pairs')
-  .action((opts) => {
-    const providers = String(opts.providers).split(',').map((s) => s.trim()).filter(Boolean);
+  .action(opts => {
+    const providers = String(opts.providers)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
     const weights = parseWeights(opts.weights);
     const policy = buildPolicy({
       providers,
@@ -39,7 +38,7 @@ program
 program
   .command('validate <file>')
   .description('Validate a layerall.policy.json file')
-  .action((file) => {
+  .action(file => {
     const path = resolve(process.cwd(), file);
     if (!existsSync(path)) {
       console.error(`✖ File not found: ${path}`);
@@ -70,7 +69,7 @@ program
   .description('Generate a static marketing landing page from a JSON config')
   .option('-c, --config <path>', 'path to landing-config JSON file')
   .option('-o, --out <path>', 'output directory', 'landing')
-  .action((opts) => {
+  .action(opts => {
     let configInput: unknown;
     if (opts.config) {
       const cfgPath = resolve(process.cwd(), opts.config);
@@ -118,9 +117,9 @@ function parseWeights(input: string | undefined): Record<string, number> | undef
 
 function getVersion(): string {
   try {
-    const pkg = JSON.parse(
-      readFileSync(new URL('../package.json', import.meta.url), 'utf8')
-    ) as { version?: string };
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      version?: string;
+    };
     return pkg.version ?? '0.0.0';
   } catch {
     return '0.0.0';

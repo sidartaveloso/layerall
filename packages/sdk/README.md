@@ -19,7 +19,12 @@ const client = new Orchestrator({
 });
 
 const result = await client.operation('create', {
-  payload: { externalId: 'req_123', data: { /* domain payload */ } },
+  payload: {
+    externalId: 'req_123',
+    data: {
+      /* domain payload */
+    },
+  },
   strategy: 'round_robin',
   timeoutMs: 8000,
 });

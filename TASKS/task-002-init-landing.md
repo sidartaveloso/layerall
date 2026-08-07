@@ -20,21 +20,21 @@ O programador só precisa de um JSON como este:
   "operations": ["reverse", "batch"],
   "strategies": ["round_robin", "most_fast", "failover"],
   "providers": [
-    { "name": "Google Maps",  "weight": 50, "latency": 180, "health": 0.98 },
-    { "name": "Nominatim",    "weight": 30, "latency": 320, "health": 0.92 },
-    { "name": "Mapbox",       "weight": 20, "latency": 140, "health": 0.95 }
+    { "name": "Google Maps", "weight": 50, "latency": 180, "health": 0.98 },
+    { "name": "Nominatim", "weight": 30, "latency": 320, "health": 0.92 },
+    { "name": "Mapbox", "weight": 20, "latency": 140, "health": 0.95 },
   ],
   "sdkExamples": {
     "node": "import { Orchestrator } from '@layerall/sdk';\nconst client = new Orchestrator({ apiKey: process.env.LAYERALL_API_KEY!, baseUrl: 'https://api.allgeo.com' });\nconst result = await client.operation('reverse', { payload: { data: { lat: -23.55, lng: -46.63 } }, strategy: 'most_fast' });",
     "python": "from layerall_sdk import Orchestrator\nclient = Orchestrator(api_key=...)\nresult = client.operation('reverse', payload={'data': {'lat': -23.55, 'lng': -46.63}}, strategy='most_fast')",
-    "curl": "curl -X POST 'https://api.allgeo.com/v1/operation/reverse' -H 'Authorization: Bearer $KEY' -d '{\"payload\":{\"data\":{\"lat\":-23.55,\"lng\":-46.63}},\"strategy\":\"most_fast\"}'"
+    "curl": "curl -X POST 'https://api.allgeo.com/v1/operation/reverse' -H 'Authorization: Bearer $KEY' -d '{\"payload\":{\"data\":{\"lat\":-23.55,\"lng\":-46.63}},\"strategy\":\"most_fast\"}'",
   },
   "pricing": {
-    "starter":  { "price": "R$ 0",   "requests": "10k/mês", "providers": 2 },
-    "pro":      { "price": "R$ 499", "requests": "100k/mês", "providers": "ilimitado" },
-    "enterprise": { "price": "Sob consulta", "features": ["SSO", "SLA", "Suporte dedicado"] }
+    "starter": { "price": "R$ 0", "requests": "10k/mês", "providers": 2 },
+    "pro": { "price": "R$ 499", "requests": "100k/mês", "providers": "ilimitado" },
+    "enterprise": { "price": "Sob consulta", "features": ["SSO", "SLA", "Suporte dedicado"] },
   },
-  "cta": { "email": "geo@allx.com" }
+  "cta": { "email": "geo@allx.com" },
 }
 ```
 

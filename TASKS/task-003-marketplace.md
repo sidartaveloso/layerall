@@ -21,7 +21,9 @@ Criar uma seção no site de documentação (ou uma página separada) que funcio
   "website": "https://allgeo.dev",
   "providers": ["Google Maps", "Nominatim", "Mapbox", "OpenCage"],
   "strategies": ["round_robin", "most_fast", "failover"],
-  "config": { /* link ou embed do JSON usado no init-landing */ }
+  "config": {
+    /* link ou embed do JSON usado no init-landing */
+  },
 }
 ```
 

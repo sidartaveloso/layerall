@@ -106,7 +106,7 @@ export class PrometheusObserver implements Observer {
     });
     this.latencySeconds.observe(
       { provider: res.provider, operation: res.operation },
-      res.latencyMs / 1000,
+      res.latencyMs / 1000
     );
   }
 }
@@ -129,9 +129,10 @@ export interface CreateMetricsRouterOptions extends RouterOptions {
  * });
  * ```
  */
-export function createMetricsRouter(
-  opts: CreateMetricsRouterOptions,
-): { router: Router; observer: PrometheusObserver } {
+export function createMetricsRouter(opts: CreateMetricsRouterOptions): {
+  router: Router;
+  observer: PrometheusObserver;
+} {
   const observer = new PrometheusObserver(opts.prometheus);
   const router = new Router({
     providers: opts.providers,

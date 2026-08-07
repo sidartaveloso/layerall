@@ -29,27 +29,19 @@ export default defineConfig({
       },
       {
         text: 'Tutorial',
-        items: [
-          { text: 'AllGeo (geocode reverso)', link: '/tutorials/allgeo' },
-        ],
+        items: [{ text: 'AllGeo (geocode reverso)', link: '/tutorials/allgeo' }],
       },
       {
         text: 'SDK',
-        items: [
-          { text: 'Referência do SDK', link: '/sdk/quick-start' },
-        ],
+        items: [{ text: 'Referência do SDK', link: '/sdk/quick-start' }],
       },
       {
         text: 'CLI',
-        items: [
-          { text: 'Comandos', link: '/cli/commands' },
-        ],
+        items: [{ text: 'Comandos', link: '/cli/commands' }],
       },
       {
         text: 'Plugins',
-        items: [
-          { text: 'Prometheus', link: '/plugins/prometheus' },
-        ],
+        items: [{ text: 'Prometheus', link: '/plugins/prometheus' }],
       },
     ],
     socialLinks: [{ icon: 'github', link: 'https://github.com/sidartaveloso/layerall' }],

@@ -29,8 +29,18 @@ Saída:
     "default": {
       "providers": ["google", "nominatim", "mapbox"],
       "operations": {
-        "create": { "strategy": "round_robin", "timeoutMs": 8000, "retries": { "max": 1, "backoffMs": 300 }, "failover": true },
-        "send": { "strategy": "load_balance", "weights": {"google": 50, "nominatim": 30, "mapbox": 20}, "timeoutMs": 12000, "retries": { "max": 2, "backoffMs": 450 } },
+        "create": {
+          "strategy": "round_robin",
+          "timeoutMs": 8000,
+          "retries": { "max": 1, "backoffMs": 300 },
+          "failover": true
+        },
+        "send": {
+          "strategy": "load_balance",
+          "weights": { "google": 50, "nominatim": 30, "mapbox": 20 },
+          "timeoutMs": 12000,
+          "retries": { "max": 2, "backoffMs": 450 }
+        },
         "status": { "strategy": "most_fast", "timeoutMs": 6000, "cacheTtlMs": 5000 },
         "cancel": { "strategy": "failover", "timeoutMs": 8000 }
       }
@@ -78,25 +88,28 @@ layerall init-landing --out landing-default
 
 ```jsonc
 {
-  "product": "AllGeo",                       // obrigatório
-  "tagline": "Geocode reverso unificado",   // obrigatório
-  "domain": "geocode reverso",              // obrigatório
-  "operations": ["reverse", "batch"],        // obrigatório (strings)
+  "product": "AllGeo", // obrigatório
+  "tagline": "Geocode reverso unificado", // obrigatório
+  "domain": "geocode reverso", // obrigatório
+  "operations": ["reverse", "batch"], // obrigatório (strings)
   "strategies": ["round_robin", "most_fast", "failover"], // obrigatório (subset válido)
-  "providers": [                              // obrigatório (≥1)
-    { "name": "Google Maps", "weight": 50, "latency": 180, "health": 0.98 }
+  "providers": [
+    // obrigatório (≥1)
+    { "name": "Google Maps", "weight": 50, "latency": 180, "health": 0.98 },
   ],
-  "sdkExamples": {                            // opcional
-    "node":   "import { Orchestrator } from '@layerall/sdk'; ...",
+  "sdkExamples": {
+    // opcional
+    "node": "import { Orchestrator } from '@layerall/sdk'; ...",
     "python": "from layerall_sdk import Orchestrator ...",
-    "curl":   "curl -X POST ..."
+    "curl": "curl -X POST ...",
   },
-  "pricing": {                                // opcional
-    "starter":    { "price": "R$ 0",   "requests": "10k/mês",  "providers": 2 },
-    "pro":        { "price": "R$ 499", "requests": "100k/mês", "providers": "ilimitado" },
-    "enterprise": { "price": "Sob consulta", "features": ["SSO", "SLA"] }
+  "pricing": {
+    // opcional
+    "starter": { "price": "R$ 0", "requests": "10k/mês", "providers": 2 },
+    "pro": { "price": "R$ 499", "requests": "100k/mês", "providers": "ilimitado" },
+    "enterprise": { "price": "Sob consulta", "features": ["SSO", "SLA"] },
   },
-  "cta": { "email": "geo@allx.com" }          // opcional
+  "cta": { "email": "geo@allx.com" }, // opcional
 }
 ```
 

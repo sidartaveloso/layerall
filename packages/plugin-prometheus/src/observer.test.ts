@@ -32,7 +32,7 @@ function policy(): PolicyDocument {
 async function runWith(
   observer: PrometheusObserver,
   registry: Registry,
-  providers: Record<string, Provider>,
+  providers: Record<string, Provider>
 ) {
   const router = new Router({ providers, policy: policy(), observer });
   const a = await router.execute('create', { data: {} });
@@ -65,38 +65,29 @@ describe('PrometheusObserver', () => {
   });
 
   it('increments requests_total with status=failed when all providers fail', async () => {
-    await runWith(
-      observer,
-      registry,
-      { a: makeProvider('a', false), b: makeProvider('b', false) },
-    );
+    await runWith(observer, registry, { a: makeProvider('a', false), b: makeProvider('b', false) });
     const metrics = await registry.metrics();
     expect(metrics).toContain('status="failed"');
   });
 
   it('increments attempts_total for every attempt, ok or fail', async () => {
-    await runWith(
-      observer,
-      registry,
-      { a: makeProvider('a', true), b: makeProvider('b', false) },
-    );
+    await runWith(observer, registry, { a: makeProvider('a', true), b: makeProvider('b', false) });
     const metrics = await registry.metrics();
     // one attempt, one OK
     expect(metrics).toContain('result="ok"');
   });
 
   it('increments errors_total with a code label on failed attempts', async () => {
-    await runWith(
-      observer,
-      registry,
-      { a: makeProvider('a', false), b: makeProvider('b', false) },
-    );
+    await runWith(observer, registry, { a: makeProvider('a', false), b: makeProvider('b', false) });
     const metrics = await registry.metrics();
     expect(metrics).toContain('code="upstream_error"');
   });
 
   it('records latency in seconds via the latency histogram', async () => {
-    await runWith(observer, registry, { a: makeProvider('a', true, 30), b: makeProvider('b', true) });
+    await runWith(observer, registry, {
+      a: makeProvider('a', true, 30),
+      b: makeProvider('b', true),
+    });
     const metrics = await registry.metrics();
     expect(metrics).toContain('layerall_latency_seconds_bucket');
     expect(metrics).toContain('le="0.5"');
@@ -105,7 +96,10 @@ describe('PrometheusObserver', () => {
   it('uses a custom prefix when provided', async () => {
     const customRegistry = new Registry();
     const customObserver = new PrometheusObserver({ registry: customRegistry, prefix: 'allx_' });
-    await runWith(customObserver, customRegistry, { a: makeProvider('a', true), b: makeProvider('b', true) });
+    await runWith(customObserver, customRegistry, {
+      a: makeProvider('a', true),
+      b: makeProvider('b', true),
+    });
     const metrics = await customRegistry.metrics();
     expect(metrics).toContain('allx_requests_total');
     expect(metrics).not.toContain('layerall_requests_total');

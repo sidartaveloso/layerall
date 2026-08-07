@@ -65,7 +65,7 @@ console.log(result.id, result.provider, result.status);
 | Estratégia     | Descrição                                       |
 | -------------- | ----------------------------------------------- |
 | `round_robin`  | Distribui o volume igualmente entre provedores  |
-| `load_balance` | Seleção ponderada pela capacidade do provedor    |
+| `load_balance` | Seleção ponderada pela capacidade do provedor   |
 | `most_fast`    | Escolhe o provedor elegível de menor latência   |
 | `failover`     | Tenta os provedores em ordem até um ter sucesso |
 

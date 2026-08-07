@@ -25,7 +25,9 @@ const client = new Orchestrator({
 const result = await client.operation('create', {
   payload: {
     externalId: 'meu-id-123',
-    data: { /* domínio específico */ },
+    data: {
+      /* domínio específico */
+    },
   },
   strategy: 'round_robin',
   timeoutMs: 8000,
@@ -78,23 +80,23 @@ await client.operation('create', {
 
 ### `new Orchestrator(opts)`
 
-| Parâmetro   | Tipo     | Padrão        | Descrição                         |
-|-------------|----------|---------------|-----------------------------------|
-| `apiKey`    | `string` | —             | Chave de autenticação             |
-| `baseUrl`   | `string` | —             | URL base do backend               |
-| `endpoint`  | `string` | `/v1/operation` | Path do endpoint de operação    |
+| Parâmetro   | Tipo           | Padrão             | Descrição                                |
+| ----------- | -------------- | ------------------ | ---------------------------------------- |
+| `apiKey`    | `string`       | —                  | Chave de autenticação                    |
+| `baseUrl`   | `string`       | —                  | URL base do backend                      |
+| `endpoint`  | `string`       | `/v1/operation`    | Path do endpoint de operação             |
 | `fetchImpl` | `typeof fetch` | `globalThis.fetch` | Para testes ou runtimes sem fetch nativo |
 
 ### `client.operation(op, params)`
 
-| Parâmetro     | Tipo                              | Descrição                       |
-|---------------|-----------------------------------|---------------------------------|
-| `op`          | `string`                          | Nome da operação (`create`, `reverse`, etc.) |
-| `params.payload` | `{ externalId?: string, data: T }` | Payload da operação |
-| `params.strategy` | `string` (opcional)            | Override de estratégia |
-| `params.timeoutMs` | `number` (opcional)           | Timeout em ms |
-| `params.failover` | `boolean` (opcional)          | Override de failover |
-| `params.signal` | `AbortSignal` (opcional)        | Para cancelamento |
+| Parâmetro          | Tipo                               | Descrição                                    |
+| ------------------ | ---------------------------------- | -------------------------------------------- |
+| `op`               | `string`                           | Nome da operação (`create`, `reverse`, etc.) |
+| `params.payload`   | `{ externalId?: string, data: T }` | Payload da operação                          |
+| `params.strategy`  | `string` (opcional)                | Override de estratégia                       |
+| `params.timeoutMs` | `number` (opcional)                | Timeout em ms                                |
+| `params.failover`  | `boolean` (opcional)               | Override de failover                         |
+| `params.signal`    | `AbortSignal` (opcional)           | Para cancelamento                            |
 
 ### Retorno
 

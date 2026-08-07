@@ -14,10 +14,13 @@ export function clamp(n: number, min: number, max: number): number {
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new AbortedError());
-    const t = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
-      resolve();
-    }, Math.max(0, ms));
+    const t = setTimeout(
+      () => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      },
+      Math.max(0, ms)
+    );
     const onAbort = () => {
       clearTimeout(t);
       reject(new AbortedError());

@@ -95,7 +95,10 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
   } else {
     for (const s of c.strategies) {
       if (!VALID_STRATEGIES.has(s as string)) {
-        issues.push({ path: 'strategies', message: `estratégia desconhecida: "${s}". Válidas: ${STRATEGY_NAMES.join(', ')}` });
+        issues.push({
+          path: 'strategies',
+          message: `estratégia desconhecida: "${s}". Válidas: ${STRATEGY_NAMES.join(', ')}`,
+        });
       }
     }
     if (c.strategies.length === 0) {
@@ -103,8 +106,16 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
     }
   }
 
-  if (!Array.isArray(c.providers) || !c.providers.every(p => p && typeof p === 'object' && typeof (p as { name?: unknown }).name === 'string')) {
-    issues.push({ path: 'providers', message: 'providers deve ser um array de objetos { name: string }' });
+  if (
+    !Array.isArray(c.providers) ||
+    !c.providers.every(
+      p => p && typeof p === 'object' && typeof (p as { name?: unknown }).name === 'string'
+    )
+  ) {
+    issues.push({
+      path: 'providers',
+      message: 'providers deve ser um array de objetos { name: string }',
+    });
   } else {
     c.providers.forEach((p, i) => {
       const prov = p as { weight?: unknown; latency?: unknown; health?: unknown };
@@ -114,7 +125,10 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
       if (prov.latency != null && typeof prov.latency !== 'number') {
         issues.push({ path: `providers[${i}].latency`, message: 'latency deve ser number' });
       }
-      if (prov.health != null && (typeof prov.health !== 'number' || prov.health < 0 || prov.health > 1)) {
+      if (
+        prov.health != null &&
+        (typeof prov.health !== 'number' || prov.health < 0 || prov.health > 1)
+      ) {
         issues.push({ path: `providers[${i}].health`, message: 'health deve ser number em [0,1]' });
       }
     });
@@ -125,11 +139,18 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
 
   if (c.sdkExamples != null) {
     if (typeof c.sdkExamples !== 'object' || Array.isArray(c.sdkExamples)) {
-      issues.push({ path: 'sdkExamples', message: 'sdkExamples deve ser um objeto { node?, python?, curl? }' });
+      issues.push({
+        path: 'sdkExamples',
+        message: 'sdkExamples deve ser um objeto { node?, python?, curl? }',
+      });
     } else {
       const allowed = new Set(['node', 'python', 'curl']);
       for (const k of Object.keys(c.sdkExamples)) {
-        if (!allowed.has(k)) issues.push({ path: `sdkExamples.${k}`, message: 'chave de sdkExamples inválida (use node, python ou curl)' });
+        if (!allowed.has(k))
+          issues.push({
+            path: `sdkExamples.${k}`,
+            message: 'chave de sdkExamples inválida (use node, python ou curl)',
+          });
         else if (typeof (c.sdkExamples as Record<string, unknown>)[k] !== 'string') {
           issues.push({ path: `sdkExamples.${k}`, message: 'sdkExamples value deve ser string' });
         }
@@ -146,7 +167,12 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
           issues.push({ path: `pricing.${tier}`, message: 'tier deve ser um objeto' });
           continue;
         }
-        const t = v as { price?: unknown; requests?: unknown; providers?: unknown; features?: unknown };
+        const t = v as {
+          price?: unknown;
+          requests?: unknown;
+          providers?: unknown;
+          features?: unknown;
+        };
         if (t.price != null && typeof t.price !== 'string') {
           issues.push({ path: `pricing.${tier}.price`, message: 'price deve ser string' });
         }
@@ -154,10 +180,19 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
           issues.push({ path: `pricing.${tier}.requests`, message: 'requests deve ser string' });
         }
         if (t.providers != null && typeof t.providers !== 'number' && t.providers !== 'ilimitado') {
-          issues.push({ path: `pricing.${tier}.providers`, message: 'providers deve ser number ou "ilimitado"' });
+          issues.push({
+            path: `pricing.${tier}.providers`,
+            message: 'providers deve ser number ou "ilimitado"',
+          });
         }
-        if (t.features != null && !(Array.isArray(t.features) && t.features.every(f => typeof f === 'string'))) {
-          issues.push({ path: `pricing.${tier}.features`, message: 'features deve ser array de strings' });
+        if (
+          t.features != null &&
+          !(Array.isArray(t.features) && t.features.every(f => typeof f === 'string'))
+        ) {
+          issues.push({
+            path: `pricing.${tier}.features`,
+            message: 'features deve ser array de strings',
+          });
         }
       }
     }
@@ -166,7 +201,10 @@ export function validateLandingConfig(input: unknown): LandingValidationResult {
   if (c.cta != null) {
     if (typeof c.cta !== 'object' || Array.isArray(c.cta)) {
       issues.push({ path: 'cta', message: 'cta deve ser um objeto { email? }' });
-    } else if ((c.cta as { email?: unknown }).email != null && typeof (c.cta as { email?: unknown }).email !== 'string') {
+    } else if (
+      (c.cta as { email?: unknown }).email != null &&
+      typeof (c.cta as { email?: unknown }).email !== 'string'
+    ) {
       issues.push({ path: 'cta.email', message: 'cta.email deve ser string' });
     }
   }
@@ -199,7 +237,7 @@ export function defaultLandingConfig(): LandingConfig {
     providers: [
       { name: 'Provider A', weight: 50, latency: 180, health: 0.96 },
       { name: 'Provider B', weight: 30, latency: 120, health: 0.92 },
-      { name: 'Provider C', weight: 20, latency: 90,  health: 0.88 },
+      { name: 'Provider C', weight: 20, latency: 90, health: 0.88 },
     ],
     sdkExamples: {
       node: DEFAULT_HERO_CODE,
@@ -211,16 +249,16 @@ result = client.operation('create', payload={'data': {}}, strategy='most_fast')`
   -d '{"payload":{"data":{}},"strategy":"most_fast"}'`,
     },
     pricing: {
-      starter:    { price: 'R$ 0',           requests: '10k/mês',   providers: 2 },
-      pro:        { price: 'R$ 499',         requests: '100k/mês',   providers: 'ilimitado' },
-      enterprise: { price: 'Sob consulta',  features: ['SSO', 'SLA', 'Suporte dedicado'] },
+      starter: { price: 'R$ 0', requests: '10k/mês', providers: 2 },
+      pro: { price: 'R$ 499', requests: '100k/mês', providers: 'ilimitado' },
+      enterprise: { price: 'Sob consulta', features: ['SSO', 'SLA', 'Suporte dedicado'] },
     },
     cta: { email: 'contato@allx.com' },
   };
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+  return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string);
 }
 
 /** Renders the full single-file landing HTML for the supplied config. */
@@ -230,7 +268,10 @@ export function renderLanding(config: LandingConfig): string {
   const title = `${config.product} — ${config.tagline}`;
   // Escape </script> when embedding JSON inline so user-supplied SDK snippets
   // can't break out of the script tag.
-  const json = JSON.stringify(config).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+  const json = JSON.stringify(config)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
 
   return template
     .replace(/__LAYERALL_TITLE__/g, escapeHtml(title))
