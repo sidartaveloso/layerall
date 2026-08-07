@@ -52,13 +52,14 @@ const res = await router.execute('create', { externalId: 'req_123', data: {} });
 
 ## Strategies
 
-| Strategy       | Behaviour                                                                                                                                                                                              |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `round_robin`  | Cycles through eligible providers in policy order.                                                                                                                                                     |
-| `load_balance` | Weighted random by `Provider.weight` / policy weights.                                                                                                                                                 |
-| `most_fast`    | Lowest score = `baseLatency + (1-health)*280 + failRate*420`.                                                                                                                                          |
-| `failover`     | Tries eligible providers in order until one succeeds.                                                                                                                                                  |
-| `geo_rule`     | Routes by the payload coordinate against GeoJSON `MultiPolygon` regions; 3D vertices `[lng, lat, alt]` gate the altitude. Multiple matches fall back to `fallbackStrategy` (`round_robin` by default). |
+| Strategy        | Behaviour                                                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `round_robin`   | Cycles through eligible providers in policy order.                                                                                                                                                     |
+| `load_balance`  | Weighted random by `Provider.weight` / policy weights.                                                                                                                                                 |
+| `most_fast`     | Lowest score = `baseLatency + (1-health)*280 + failRate*420`.                                                                                                                                          |
+| `failover`      | Tries eligible providers in order until one succeeds.                                                                                                                                                  |
+| `geo_rule`      | Routes by the payload coordinate against GeoJSON `MultiPolygon` regions; 3D vertices `[lng, lat, alt]` gate the altitude. Multiple matches fall back to `fallbackStrategy` (`round_robin` by default). |
+| `priority_race` | Fires every eligible provider in parallel and returns the first success in priority order, cancelling the rest (`onCancelled`).                                                                        |
 
 ### Geographic routing (`geo_rule`)
 

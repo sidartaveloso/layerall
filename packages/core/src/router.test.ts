@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { MultiPolygon } from 'geojson';
 import { Router } from './router.js';
-import type { AttemptLog, OperationName, PolicyDocument, Provider, StrategyName } from './types.js';
+import type {
+  AttemptLog,
+  CancelledEvent,
+  OperationName,
+  OperationPolicy,
+  PolicyDocument,
+  Provider,
+  StrategyName,
+} from './types.js';
 
 const mkProvider = (
   id: string,
@@ -217,5 +225,142 @@ describe('Router geo_rule', () => {
     const res = await router.execute('create', { data: { location: [0, 0] } });
     expect(res.status).toBe('succeeded');
     expect(res.provider).toBe('fast');
+  });
+});
+
+describe('Router priority_race', () => {
+  const racePolicy = (op: Partial<OperationPolicy> = {}): PolicyDocument => ({
+    tenants: {
+      default: {
+        providers: ['p1', 'p2', 'p3'],
+        operations: {
+          create: {
+            strategy: 'priority_race',
+            timeoutMs: 2000,
+            retries: { max: 0, backoffMs: 1 },
+            ...op,
+          },
+        },
+      },
+    },
+  });
+
+  const raceRouter = (
+    providers: Record<string, Provider>,
+    observer?: { onCancelled?: (ev: CancelledEvent) => void }
+  ) => new Router({ policy: racePolicy(), providers, observer });
+
+  const abortAwareProvider = (id: string, resolveMs: number, timeoutMs?: number): Provider => ({
+    id,
+    timeoutMs,
+    invoke: async ctx =>
+      new Promise<unknown>((resolve, reject) => {
+        const timer = setTimeout(() => resolve({ ok: true, provider: id }), resolveMs);
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(new Error('aborted'));
+        };
+        ctx.signal?.addEventListener('abort', onAbort, { once: true });
+        if (ctx.signal?.aborted) onAbort();
+      }),
+  });
+
+  it('returns the first provider result when the first succeeds', async () => {
+    const res = await raceRouter({
+      p1: mkProvider('p1', 'ok', 10),
+      p2: mkProvider('p2', 'ok', 30),
+      p3: mkProvider('p3', 'ok', 60),
+    }).execute('create', basePayload);
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('p1');
+  });
+
+  it('falls through to the next provider when a higher-priority one fails', async () => {
+    const res = await raceRouter({
+      p1: mkProvider('p1', 'fatal'),
+      p2: mkProvider('p2', 'ok', 5),
+      p3: mkProvider('p3', 'ok', 30),
+    }).execute('create', basePayload);
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('p2');
+  });
+
+  it('fails with all_failed when every provider fails', async () => {
+    const res = await raceRouter({
+      p1: mkProvider('p1', 'fatal'),
+      p2: mkProvider('p2', 'fatal'),
+      p3: mkProvider('p3', 'fatal'),
+    }).execute('create', basePayload);
+    expect(res.status).toBe('failed');
+    expect(res.error?.code).toBe('all_failed');
+  });
+
+  it('cancels lower-priority providers when a higher one succeeds', async () => {
+    const cancelled: CancelledEvent[] = [];
+    const router = new Router({
+      policy: racePolicy(),
+      providers: {
+        p1: mkProvider('p1', 'ok', 5),
+        p2: abortAwareProvider('p2', 200),
+        p3: abortAwareProvider('p3', 200),
+      },
+      observer: { onCancelled: ev => cancelled.push(ev) },
+    });
+    const res = await router.execute('create', basePayload);
+    expect(res.provider).toBe('p1');
+    expect(cancelled.map(c => c.reason).sort()).toEqual(['superseded', 'superseded']);
+    expect(cancelled.map(c => c.provider).sort()).toEqual(['p2', 'p3']);
+  });
+
+  it('respects the per-provider timeout', async () => {
+    const cancelled: CancelledEvent[] = [];
+    const router = new Router({
+      policy: racePolicy({ timeoutMs: undefined }),
+      providers: {
+        p1: abortAwareProvider('p1', 1000, 20),
+        p2: mkProvider('p2', 'ok', 5),
+        p3: mkProvider('p3', 'ok', 5),
+      },
+      observer: { onCancelled: ev => cancelled.push(ev) },
+    });
+    const res = await router.execute('create', basePayload);
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('p2');
+    expect(cancelled.some(c => c.provider === 'p1' && c.reason === 'timeout')).toBe(true);
+  });
+
+  it('lets the general timeout override the per-provider timeout', async () => {
+    const cancelled: CancelledEvent[] = [];
+    const router = new Router({
+      policy: racePolicy({ timeoutMs: 5000 }),
+      providers: {
+        p1: abortAwareProvider('p1', 50, 20),
+        p2: mkProvider('p2', 'fatal'),
+        p3: mkProvider('p3', 'fatal'),
+      },
+      observer: { onCancelled: ev => cancelled.push(ev) },
+    });
+    const res = await router.execute('create', basePayload);
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('p1');
+    expect(cancelled.filter(c => c.provider === 'p1' && c.reason === 'timeout')).toHaveLength(0);
+  });
+
+  it('propagates an external abort to every provider', async () => {
+    const controller = new AbortController();
+    const cancelled: CancelledEvent[] = [];
+    const router = new Router({
+      policy: racePolicy(),
+      providers: {
+        p1: abortAwareProvider('p1', 1000),
+        p2: abortAwareProvider('p2', 1000),
+      },
+      observer: { onCancelled: ev => cancelled.push(ev) },
+    });
+    setTimeout(() => controller.abort(), 20);
+    const res = await router.execute('create', basePayload, { signal: controller.signal });
+    expect(res.status).toBe('failed');
+    expect(res.error?.code).toBe('aborted');
+    expect(cancelled.some(c => c.reason === 'aborted')).toBe(true);
   });
 });

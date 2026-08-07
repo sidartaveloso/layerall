@@ -19,7 +19,7 @@ export interface SelectionContext {
   geo?: GeoRuleConfig;
 }
 
-export type Strategy = (ctx: SelectionContext) => Provider | null;
+export type Strategy = (ctx: SelectionContext) => Provider | Provider[] | null;
 
 /** Round‑robin: cycles through eligible providers in order. */
 export const roundRobin: Strategy = ctx => {
@@ -69,6 +69,12 @@ export const failover: Strategy = ctx => {
   return eligible[0] ?? null;
 };
 
+/** Priority race: returns every eligible provider; the router fires them in parallel. */
+export const priorityRace: Strategy = ctx => {
+  const { eligible } = ctx;
+  return eligible.length > 0 ? eligible : null;
+};
+
 /** Geo rule: selects the providers of every region matching the payload coordinate. */
 export const geoRule: Strategy = ctx => {
   const geo = ctx.geo;
@@ -97,6 +103,7 @@ export const strategies: Record<StrategyName, Strategy> = {
   most_fast: mostFast,
   failover,
   geo_rule: geoRule,
+  priority_race: priorityRace,
 };
 
 function resolveWeight(p: Provider, weights: Record<string, number>): number {

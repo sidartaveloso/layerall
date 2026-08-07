@@ -4,7 +4,13 @@ import type { MultiPolygon } from 'geojson';
 export type OperationName = 'create' | 'send' | 'status' | 'cancel';
 
 /** Pluggable routing strategies. */
-export type StrategyName = 'round_robin' | 'load_balance' | 'most_fast' | 'failover' | 'geo_rule';
+export type StrategyName =
+  | 'round_robin'
+  | 'load_balance'
+  | 'most_fast'
+  | 'failover'
+  | 'geo_rule'
+  | 'priority_race';
 
 /** A registered provider implementation. Adapters map domain calls to `invoke`. */
 export interface Provider<TContext = unknown, TResult = unknown> {
@@ -21,6 +27,8 @@ export interface Provider<TContext = unknown, TResult = unknown> {
   baseLatency?: number;
   /** Optional transient failure rate in [0, 1]; used by `most_fast` as a penalty. */
   failRate?: number;
+  /** Optional per-provider timeout in ms, used by `priority_race`. */
+  timeoutMs?: number;
   /**
    * Executes the operation against this provider. Implementations translate the
    * provider-agnostic call into a concrete downstream API request.
@@ -162,9 +170,21 @@ export interface AttemptLog {
   errorCode?: string;
 }
 
+/** Why a parallel attempt was cancelled. */
+export type CancelledReason = 'superseded' | 'timeout' | 'aborted';
+
+/** Emitted when `priority_race` cancels an in-flight provider. */
+export interface CancelledEvent {
+  requestId: string;
+  provider: string;
+  operation: OperationName;
+  reason: CancelledReason;
+}
+
 /** Sink receiving attempt logs and final outcomes for observability. */
 export interface Observer {
   onStart?(ev: { requestId: string; operation: OperationName; strategy: StrategyName }): void;
   onAttempt?(log: AttemptLog): void;
   onFinish?(res: OperationResult): void;
+  onCancelled?(ev: CancelledEvent): void;
 }

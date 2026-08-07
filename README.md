@@ -83,13 +83,14 @@ console.log(result.id, result.provider, result.status);
 
 ## Strategies
 
-| Strategy       | Description                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| `round_robin`  | Distributes volume equally across providers                                                     |
-| `load_balance` | Weighted selection by provider capacity                                                         |
-| `most_fast`    | Picks the lowest‑latency eligible provider                                                      |
-| `failover`     | Tries providers in order until one succeeds                                                     |
-| `geo_rule`     | Routes by payload coordinate over GeoJSON regions (3D vertices `[lng, lat, alt]` gate altitude) |
+| Strategy        | Description                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| `round_robin`   | Distributes volume equally across providers                                                     |
+| `load_balance`  | Weighted selection by provider capacity                                                         |
+| `most_fast`     | Picks the lowest‑latency eligible provider                                                      |
+| `failover`      | Tries providers in order until one succeeds                                                     |
+| `geo_rule`      | Routes by payload coordinate over GeoJSON regions (3D vertices `[lng, lat, alt]` gate altitude) |
+| `priority_race` | Fires all eligible providers in parallel, returns first success in priority order               |
 
 ## Releases
 

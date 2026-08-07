@@ -1,4 +1,5 @@
 import type {
+  CancelledReason,
   Observer,
   OperationName,
   OperationPayload,
@@ -80,9 +81,8 @@ export class Router {
     const startedAt = performance.now();
     let order: Provider[];
     try {
-      order = failover
-        ? eligible
-        : [strategies[strategy](selectionCtx)].filter((p): p is Provider => p !== null);
+      const selection = failover ? eligible : strategies[strategy](selectionCtx);
+      order = Array.isArray(selection) ? selection : selection ? [selection] : [];
     } catch (err) {
       if (err instanceof GeoRuleError) {
         const out = this.fail<TResult>(requestId, operation, err.code, err.message, 0, 0);
@@ -92,6 +92,20 @@ export class Router {
       throw err;
     }
     const targets = order.length > 0 ? order : eligible;
+
+    if (strategy === 'priority_race' && targets.length > 1) {
+      const explicitTimeout = options.timeoutMs ?? opPolicy.timeoutMs;
+      const out = await this.executeParallel<TResult>(
+        operation,
+        requestId,
+        payload,
+        targets,
+        explicitTimeout,
+        options.signal
+      );
+      this.observer?.onFinish?.(out);
+      return out;
+    }
 
     let attempts = 0;
     let lastError: OperationResult<TResult> | null = null;
@@ -191,6 +205,173 @@ export class Router {
       );
     this.observer?.onFinish?.(out);
     return out;
+  }
+
+  private async executeParallel<TResult>(
+    operation: OperationName,
+    requestId: string,
+    payload: OperationPayload,
+    targets: Provider[],
+    explicitTimeoutMs: number | undefined,
+    externalSignal: AbortSignal | undefined
+  ): Promise<OperationResult<TResult>> {
+    interface ParallelAttempt {
+      ok: boolean;
+      result?: TResult;
+      error?: unknown;
+      latencyMs: number;
+      cancelled?: CancelledReason;
+    }
+
+    interface ParallelTask {
+      provider: Provider;
+      index: number;
+      controller: AbortController;
+      timer?: ReturnType<typeof setTimeout>;
+      cancelled?: CancelledReason;
+      promise: Promise<ParallelAttempt>;
+    }
+
+    const tasks: ParallelTask[] = targets.map((provider, index) => {
+      const controller = new AbortController();
+      const task: ParallelTask = {
+        provider,
+        index,
+        controller,
+        promise: Promise.resolve({ ok: false, latencyMs: 0 }),
+      };
+      const effectiveTimeout = explicitTimeoutMs ?? provider.timeoutMs ?? this.defaultTimeoutMs;
+      if (effectiveTimeout > 0) {
+        task.timer = setTimeout(() => {
+          if (!task.cancelled) {
+            task.cancelled = 'timeout';
+            controller.abort();
+            this.emitCancelled(requestId, provider, operation, 'timeout');
+          }
+        }, effectiveTimeout);
+      }
+      task.promise = (async () => {
+        const start = performance.now();
+        try {
+          const result = await provider.invoke({
+            operation,
+            requestId,
+            payload,
+            signal: controller.signal,
+          });
+          const latencyMs = Math.round(performance.now() - start);
+          this.emitAttempt(
+            provider.id,
+            index + 1,
+            true,
+            latencyMs,
+            false,
+            undefined,
+            undefined,
+            requestId,
+            operation
+          );
+          return { ok: true, result: result as TResult, latencyMs, cancelled: task.cancelled };
+        } catch (err) {
+          const latencyMs = Math.round(performance.now() - start);
+          const transient = isTransient(err);
+          this.emitAttempt(
+            provider.id,
+            index + 1,
+            false,
+            latencyMs,
+            transient,
+            errMsg(err),
+            errCode(err),
+            requestId,
+            operation
+          );
+          return { ok: false, error: err, latencyMs, cancelled: task.cancelled };
+        }
+      })();
+      return task;
+    });
+
+    const startedAt = performance.now();
+    let externalAborted = false;
+    let onExternalAbort: (() => void) | undefined;
+    if (externalSignal) {
+      onExternalAbort = () => {
+        externalAborted = true;
+        for (const task of tasks) {
+          if (!task.cancelled) {
+            task.cancelled = 'aborted';
+            task.controller.abort();
+            this.emitCancelled(requestId, task.provider, operation, 'aborted');
+          }
+        }
+      };
+      if (externalSignal.aborted) onExternalAbort();
+      else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+
+    let attempts = 0;
+    let winner: OperationResult<TResult> | null = null;
+    for (const task of tasks) {
+      if (winner) break;
+      const outcome = await task.promise;
+      attempts++;
+      if (outcome.ok && task.cancelled === undefined) {
+        winner = this.success<TResult>(
+          requestId,
+          task.provider.id,
+          operation,
+          outcome.result as TResult,
+          outcome.latencyMs,
+          attempts
+        );
+        for (const lower of tasks) {
+          if (lower.index > task.index && !lower.cancelled) {
+            lower.cancelled = 'superseded';
+            lower.controller.abort();
+            this.emitCancelled(requestId, lower.provider, operation, 'superseded');
+          }
+        }
+      } else if (outcome.cancelled === 'aborted') {
+        externalAborted = true;
+        break;
+      }
+    }
+
+    for (const task of tasks) {
+      if (task.timer) clearTimeout(task.timer);
+    }
+    if (externalSignal && onExternalAbort)
+      externalSignal.removeEventListener('abort', onExternalAbort);
+
+    if (externalAborted) {
+      return this.fail<TResult>(
+        requestId,
+        operation,
+        'aborted',
+        'operação abortada',
+        Math.round(performance.now() - startedAt),
+        attempts
+      );
+    }
+    if (winner) return winner;
+    return this.fail<TResult>(
+      requestId,
+      operation,
+      'all_failed',
+      'todos os provedores falharam',
+      Math.round(performance.now() - startedAt),
+      attempts
+    );
+  }
+
+  private emitCancelled(
+    requestId: string,
+    provider: Provider,
+    operation: OperationName,
+    reason: CancelledReason
+  ): void {
+    this.observer?.onCancelled?.({ requestId, provider: provider.id, operation, reason });
   }
 
   private eligibleProviders(tenant: TenantPolicy): Provider[] {

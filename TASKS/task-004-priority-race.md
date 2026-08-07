@@ -37,9 +37,9 @@ Adicionar a estratégia `priority_race` ao `@layerall/core`, generalizando o tip
 
 ### 1. Tipos (`packages/core/src/types.ts`)
 
-- [ ] Adicionar `'priority_race'` ao union `StrategyName`
-- [ ] Adicionar `CancelledReason` type: `'superseded' | 'timeout' | 'aborted'`
-- [ ] Adicionar `CancelledEvent` interface:
+- [x] Adicionar `'priority_race'` ao union `StrategyName`
+- [x] Adicionar `CancelledReason` type: `'superseded' | 'timeout' | 'aborted'`
+- [x] Adicionar `CancelledEvent` interface:
   ```ts
   export interface CancelledEvent {
     requestId: string;
@@ -48,29 +48,29 @@ Adicionar a estratégia `priority_race` ao `@layerall/core`, generalizando o tip
     reason: CancelledReason;
   }
   ```
-- [ ] Adicionar `onCancelled?(ev: CancelledEvent): void` ao `Observer`
-- [ ] Adicionar `timeoutMs?: number` opcional ao `Provider` (para timeout individual)
+- [x] Adicionar `onCancelled?(ev: CancelledEvent): void` ao `Observer`
+- [x] Adicionar `timeoutMs?: number` opcional ao `Provider` (para timeout individual)
 
 ### 2. Estratégia (`packages/core/src/strategies.ts`)
 
-- [ ] Generalizar `Strategy` type:
+- [x] Generalizar `Strategy` type:
   ```ts
   export type Strategy = (ctx: SelectionContext) => Provider | Provider[] | null;
   ```
-- [ ] Implementar `priorityRace` que retorna `eligible` (array vazio → `null`)
-- [ ] Registrar no record `strategies`
-- [ ] Estratégias existentes continuam retornando `Provider | null` (compatível via covariância)
-- [ ] Exportar `priorityRace`
+- [x] Implementar `priorityRace` que retorna `eligible` (array vazio → `null`)
+- [x] Registrar no record `strategies`
+- [x] Estratégias existentes continuam retornando `Provider | null` (compatível via covariância)
+- [x] Exportar `priorityRace`
 
 ### 3. Router (`packages/core/src/router.ts`)
 
-- [ ] Detectar retorno array vs Provider na seleção:
+- [x] Detectar retorno array vs Provider na seleção:
   ```ts
   const selection = strategies[strategy](selectionCtx);
   const order = Array.isArray(selection) ? selection : (failover ? eligible : [selection].filter(...));
   ```
-- [ ] Quando `order` for array com length > 1 e strategy for `priority_race`, entrar em **modo paralelo**
-- [ ] Implementar `executeParallel()`:
+- [x] Quando `order` for array com length > 1 e strategy for `priority_race`, entrar em **modo paralelo**
+- [x] Implementar `executeParallel()`:
   - Criar `AbortController` por provider com timeout individual (provider timeout sobrescrito pelo timeout geral)
   - Disparar todos com `Promise.allSettled` + tracking individual
   - Processar resultados em ordem de prioridade (índice no array)
@@ -79,38 +79,38 @@ Adicionar a estratégia `priority_race` ao `@layerall/core`, generalizando o tip
   - Timeout/disparo individual → emitir `onCancelled` com `reason: 'timeout'`
   - Sinal externo aborta → emitir `onCancelled` com `reason: 'aborted'`
   - Todos falham → retornar `all_failed`
-- [ ] Garantir que `latencyMs` e `attempts` no resultado final sejam precisos (latência do provider vencedor, attempts = total de invocações)
+- [x] Garantir que `latencyMs` e `attempts` no resultado final sejam precisos (latência do provider vencedor, attempts = invocações consumidas)
 
 ### 4. Testes (`packages/core/src/strategies.test.ts`)
 
-- [ ] `priorityRace` retorna todos os eligible providers
-- [ ] `priorityRace` retorna `null` para pool vazio
+- [x] `priorityRace` retorna todos os eligible providers
+- [x] `priorityRace` retorna `null` para pool vazio
 
 ### 5. Testes (`packages/core/src/router.test.ts`)
 
-- [ ] `priority_race`: primeiro provider succeede → resultado do primeiro
-- [ ] `priority_race`: primeiro falha, segundo succeede → resultado do segundo
-- [ ] `priority_race`: todos falham → `all_failed`
-- [ ] `priority_race`: cancelamento de lower-priority quando higher succeede (verificar `onCancelled`)
-- [ ] `priority_race`: per-provider timeout respeitado
-- [ ] `priority_race`: timeout geral sobrepõe timeout individual
-- [ ] `priority_race`: sinal externo de aborto propaga para todos
+- [x] `priority_race`: primeiro provider succeede → resultado do primeiro
+- [x] `priority_race`: primeiro falha, segundo succeede → resultado do segundo
+- [x] `priority_race`: todos falham → `all_failed`
+- [x] `priority_race`: cancelamento de lower-priority quando higher succeede (verificar `onCancelled`)
+- [x] `priority_race`: per-provider timeout respeitado
+- [x] `priority_race`: timeout geral sobrepõe timeout individual
+- [x] `priority_race`: sinal externo de aborto propaga para todos
 
 ### 6. Integração (opcional)
 
-- [ ] Atualizar `@layerall/sdk` se ele exporta tipos de strategy que precisam refletir o novo nome
-- [ ] Adicionar entrada na tabela de estratégias no `README.md`
+- [x] Atualizar `@layerall/sdk` se ele exporta tipos de strategy que precisam refletir o novo nome (verificado: não exporta — forwarda string)
+- [x] Adicionar entrada na tabela de estratégias no `README.md`
 
 ## Versionamento
 
 **Major version** (`@layerall/core@2.0.0`) — mudanças quebram contratos públicos:
 
-| Mudança | Impacto |
-|---|---|
-| `StrategyName` ganha `'priority_race'` | Switch/pattern-match exaustivos quebram |
+| Mudança                                                                                            | Impacto                                                        |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `StrategyName` ganha `'priority_race'`                                                             | Switch/pattern-match exaustivos quebram                        |
 | `Strategy` type muda de `(ctx) => Provider \| null` para `(ctx) => Provider \| Provider[] \| null` | Código que referenciar o tipo explicitamente precisa atualizar |
-| `Observer` ganha `onCancelled?` opcional | **Não quebra** (método opcional) |
-| `Provider` ganha `timeoutMs?` opcional | **Não quebra** (campo opcional) |
+| `Observer` ganha `onCancelled?` opcional                                                           | **Não quebra** (método opcional)                               |
+| `Provider` ganha `timeoutMs?` opcional                                                             | **Não quebra** (campo opcional)                                |
 
 `semantic-release` detecta automaticamente via conventional commits — usar `feat!:` ou `BREAKING CHANGE` no footer do commit.
 

@@ -6,6 +6,7 @@ import {
   roundRobin,
   failover,
   geoRule,
+  priorityRace,
   type SelectionContext,
 } from './strategies.js';
 import { GeoRuleError, type GeoRuleConfig, type Provider } from './types.js';
@@ -100,6 +101,17 @@ describe('strategies', () => {
     expect(loadBalance(empty)).toBeNull();
     expect(mostFast(empty)).toBeNull();
     expect(failover(empty)).toBeNull();
+  });
+
+  it('priorityRace returns every eligible provider in order', () => {
+    const eligible = [mk({ id: 'A' }), mk({ id: 'B' }), mk({ id: 'C' })];
+    const selection = priorityRace(ctxFor(eligible));
+    expect(Array.isArray(selection)).toBe(true);
+    expect((selection as { id: string }[]).map(p => p.id)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('priorityRace returns null for an empty pool', () => {
+    expect(priorityRace(ctxFor([]))).toBeNull();
   });
 
   it('geoRule returns the provider of the matched region', () => {
