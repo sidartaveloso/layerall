@@ -18,13 +18,13 @@ npm install @layerall/sdk
 
 ## Conceitos em 30 segundos
 
-| Termo | O que é |
-|-------|---------|
-| **Provider** | Um adaptador que chama um provedor real (Google Maps, Stripe, etc.) |
-| **Policy** | Um JSON que define quais provedores usar e qual estratégia por operação |
-| **Strategy** | Algoritmo que escolhe qual provedor será chamado (round_robin, load_balance, most_fast, failover) |
-| **Router** | O core: recebe uma operação, aplica a policy, executa a estratégia com retries e fallback |
-| **Observer** | Hook opcional para coletar métricas de cada tentativa |
+| Termo        | O que é                                                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| **Provider** | Um adaptador que chama um provedor real (Google Maps, Stripe, etc.)                                                        |
+| **Policy**   | Um JSON que define quais provedores usar e qual estratégia por operação                                                    |
+| **Strategy** | Algoritmo que escolhe qual provedor será chamado (round_robin, load_balance, most_fast, failover, geo_rule, priority_race) |
+| **Router**   | O core: recebe uma operação, aplica a policy, executa a estratégia com retries e fallback                                  |
+| **Observer** | Hook opcional para coletar métricas de cada tentativa                                                                      |
 
 ## Mão na massa: primeiro Router
 
@@ -46,7 +46,8 @@ const googleMaps: Provider = {
     const res = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_KEY}`
     );
-    if (!res.ok) throw { code: 'upstream_error', message: `Google respondeu ${res.status}`, transient: true };
+    if (!res.ok)
+      throw { code: 'upstream_error', message: `Google respondeu ${res.status}`, transient: true };
     return res.json();
   },
 };
@@ -59,10 +60,18 @@ const nominatim: Provider = {
   failRate: 0.08,
   async invoke(ctx) {
     const { lat, lng } = ctx.payload.data as { lat: number; lng: number };
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-      headers: { 'User-Agent': 'AllGeo/1.0' },
-    });
-    if (!res.ok) throw { code: 'upstream_error', message: `Nominatim respondeu ${res.status}`, transient: true };
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      {
+        headers: { 'User-Agent': 'AllGeo/1.0' },
+      }
+    );
+    if (!res.ok)
+      throw {
+        code: 'upstream_error',
+        message: `Nominatim respondeu ${res.status}`,
+        transient: true,
+      };
     return res.json();
   },
 };
@@ -83,10 +92,10 @@ const policy: PolicyDocument = {
       providers: ['google', 'nominatim'],
       operations: {
         reverse: {
-          strategy: 'most_fast',      // usa o provedor mais rápido
+          strategy: 'most_fast', // usa o provedor mais rápido
           timeoutMs: 5000,
           retries: { max: 1, backoffMs: 300 },
-          failover: true,              // se falhar, tenta o próximo
+          failover: true, // se falhar, tenta o próximo
         },
       },
     },
@@ -106,7 +115,9 @@ const router = new Router({
   policy,
   observer: {
     onAttempt(log) {
-      console.log(`[${log.provider}] tentativa ${log.attempt}: ${log.ok ? 'OK' : 'FALHA'} (${log.latencyMs}ms)`);
+      console.log(
+        `[${log.provider}] tentativa ${log.attempt}: ${log.ok ? 'OK' : 'FALHA'} (${log.latencyMs}ms)`
+      );
     },
     onFinish(res) {
       console.log(`Final: ${res.status} em ${res.attempts} tentativa(s) via ${res.provider}`);
@@ -123,6 +134,7 @@ console.log(resultado.status, resultado.provider, resultado.providerReceipt);
 ```
 
 O Router:
+
 1. Consulta a policy e descobre que `reverse` usa `most_fast`
 2. Pede para a estratégia `most_fast` escolher o melhor provedor
 3. Invoca o provider escolhido
