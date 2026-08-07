@@ -1,6 +1,6 @@
 {
   "name": "@layerall/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Minimal TypeScript client SDK for LayerAll orchestrator services",
   "keywords": [
     "sdk",

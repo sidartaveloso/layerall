@@ -1,6 +1,6 @@
 {
   "name": "@layerall/core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Orchestration engine for LayerAll — types, routing strategies and provider router with retries and fallback",
   "keywords": [
     "orchestration",
