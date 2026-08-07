@@ -1,6 +1,6 @@
 # Task 004 — Estratégia `priority_race` com Strategy type generalizado
 
-Status: pending
+Status: in-progress
 Type: feat
 Assignee: Sidarta Veloso
 Priority: medium
