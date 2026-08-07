@@ -1,6 +1,6 @@
 # Task 005 — Estratégia `geo_rule`: roteamento por região geográfica
 
-Status: pending
+Status: in-progress
 Type: feat
 Assignee: Sidarta Veloso
 Priority: medium
