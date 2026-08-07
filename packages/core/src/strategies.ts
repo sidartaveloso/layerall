@@ -1,4 +1,6 @@
-import type { Provider, StrategyName } from './types.js';
+import type { GeoRuleConfig, OperationPayload, Provider, StrategyName } from './types.js';
+import { GeoRuleError } from './types.js';
+import { selectGeoRule } from './geo-rule.js';
 
 /**
  * Internal selection context shared by every strategy.
@@ -11,6 +13,10 @@ export interface SelectionContext {
   /** Provider id weights across all registered providers (policy or provider-weighted). */
   weights: Record<string, number>;
   roundRobinIndex: { value: number };
+  /** Operation payload, read by `geo_rule` to locate the coordinate. */
+  payload: OperationPayload;
+  /** Geographic rules used by `geo_rule`. */
+  geo?: GeoRuleConfig;
 }
 
 export type Strategy = (ctx: SelectionContext) => Provider | null;
@@ -28,10 +34,7 @@ export const roundRobin: Strategy = ctx => {
 export const loadBalance: Strategy = ctx => {
   const { eligible, weights } = ctx;
   if (eligible.length === 0) return null;
-  const total = eligible.reduce(
-    (sum, p) => sum + (resolveWeight(p, weights) || 0),
-    0
-  );
+  const total = eligible.reduce((sum, p) => sum + (resolveWeight(p, weights) || 0), 0);
   if (total <= 0) return eligible[0];
   let r = Math.random() * total;
   for (const p of eligible) {
@@ -66,11 +69,34 @@ export const failover: Strategy = ctx => {
   return eligible[0] ?? null;
 };
 
+/** Geo rule: selects the providers of every region matching the payload coordinate. */
+export const geoRule: Strategy = ctx => {
+  const geo = ctx.geo;
+  if (!geo) throw new GeoRuleError('geo_unmatched', 'configuração geo ausente para geo_rule');
+  const outcome = selectGeoRule(geo, ctx.payload, ctx.eligible);
+  switch (outcome.kind) {
+    case 'hit':
+      return outcome.provider;
+    case 'fallback': {
+      const fallback = geo.fallbackStrategy ?? 'round_robin';
+      if (fallback === 'geo_rule') {
+        throw new GeoRuleError('geo_bad_payload', 'fallbackStrategy não pode ser geo_rule');
+      }
+      return strategies[fallback]({ ...ctx, strategy: fallback, eligible: outcome.pool });
+    }
+    case 'unmatched':
+      throw new GeoRuleError('geo_unmatched', 'nenhuma regra geográfica casou');
+    case 'bad_payload':
+      throw new GeoRuleError('geo_bad_payload', 'coordenada ausente ou inválida');
+  }
+};
+
 export const strategies: Record<StrategyName, Strategy> = {
   round_robin: roundRobin,
   load_balance: loadBalance,
   most_fast: mostFast,
   failover,
+  geo_rule: geoRule,
 };
 
 function resolveWeight(p: Provider, weights: Record<string, number>): number {

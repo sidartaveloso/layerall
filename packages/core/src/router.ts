@@ -9,6 +9,7 @@ import type {
   StrategyName,
   TenantPolicy,
 } from './types.js';
+import { GeoRuleError } from './types.js';
 import { strategies, type SelectionContext } from './strategies.js';
 import { buildReceipt, clamp, sleep, uid, AbortedError } from './utils.js';
 
@@ -56,7 +57,14 @@ export class Router {
 
     const eligible = this.eligibleProviders(tenant);
     if (eligible.length === 0) {
-      return this.fail<TResult>(requestId, operation, 'no_providers', 'Nenhum provedor ativo.', 0, 0);
+      return this.fail<TResult>(
+        requestId,
+        operation,
+        'no_providers',
+        'Nenhum provedor ativo.',
+        0,
+        0
+      );
     }
 
     const weights = opPolicy.weights ?? {};
@@ -65,12 +73,24 @@ export class Router {
       eligible,
       weights,
       roundRobinIndex: this.rrIndex,
+      payload,
+      geo: opPolicy.geo,
     };
 
     const startedAt = performance.now();
-    const order = failover ? eligible : [strategies[strategy](selectionCtx)].filter(
-      (p): p is Provider => p !== null
-    );
+    let order: Provider[];
+    try {
+      order = failover
+        ? eligible
+        : [strategies[strategy](selectionCtx)].filter((p): p is Provider => p !== null);
+    } catch (err) {
+      if (err instanceof GeoRuleError) {
+        const out = this.fail<TResult>(requestId, operation, err.code, err.message, 0, 0);
+        this.observer?.onFinish?.(out);
+        return out;
+      }
+      throw err;
+    }
     const targets = order.length > 0 ? order : eligible;
 
     let attempts = 0;
@@ -90,32 +110,85 @@ export class Router {
             signal,
           });
           const latencyMs = Math.round(performance.now() - attemptStart);
-          this.emitAttempt(provider.id, attempt, true, latencyMs, false, undefined, undefined, requestId, operation);
-          const res = this.success<TResult>(requestId, provider.id, operation, result as TResult, latencyMs, attempts);
-           this.observer?.onFinish?.(res);
-           return res;
-         } catch (err) {
-const latencyMs = Math.round(performance.now() - attemptStart);
-            const transient = isTransient(err);
-            this.emitAttempt(provider.id, attempt, false, latencyMs, transient, errMsg(err), errCode(err), requestId, operation);
-           if (err instanceof AbortedError || options.signal?.aborted) {
-             const out = this.fail<TResult>(requestId, operation, 'aborted', 'operação abortada', latencyMs, attempts, provider.id);
-             this.observer?.onFinish?.(out);
-             return out;
+          this.emitAttempt(
+            provider.id,
+            attempt,
+            true,
+            latencyMs,
+            false,
+            undefined,
+            undefined,
+            requestId,
+            operation
+          );
+          const res = this.success<TResult>(
+            requestId,
+            provider.id,
+            operation,
+            result as TResult,
+            latencyMs,
+            attempts
+          );
+          this.observer?.onFinish?.(res);
+          return res;
+        } catch (err) {
+          const latencyMs = Math.round(performance.now() - attemptStart);
+          const transient = isTransient(err);
+          this.emitAttempt(
+            provider.id,
+            attempt,
+            false,
+            latencyMs,
+            transient,
+            errMsg(err),
+            errCode(err),
+            requestId,
+            operation
+          );
+          if (err instanceof AbortedError || options.signal?.aborted) {
+            const out = this.fail<TResult>(
+              requestId,
+              operation,
+              'aborted',
+              'operação abortada',
+              latencyMs,
+              attempts,
+              provider.id
+            );
+            this.observer?.onFinish?.(out);
+            return out;
           }
           if (attempt < maxAttempts && transient) {
-            const backoff = retries.backoffMs * Math.pow(retries.backoffMultiplier ?? 1, attempt - 1);
+            const backoff =
+              retries.backoffMs * Math.pow(retries.backoffMultiplier ?? 1, attempt - 1);
             await sleep(clamp(backoff, 0, 5000), options.signal).catch(() => {});
             continue;
           }
-          lastError = this.fail<TResult>(requestId, operation, errCode(err), errMsg(err), latencyMs, attempts, provider.id);
+          lastError = this.fail<TResult>(
+            requestId,
+            operation,
+            errCode(err),
+            errMsg(err),
+            latencyMs,
+            attempts,
+            provider.id
+          );
           break;
         }
       }
     }
 
     const totalMs = Math.round(performance.now() - startedAt);
-    const out = lastError ?? this.fail<TResult>(requestId, operation, 'all_failed', 'todos os provedores falharam', totalMs, attempts);
+    const out =
+      lastError ??
+      this.fail<TResult>(
+        requestId,
+        operation,
+        'all_failed',
+        'todos os provedores falharam',
+        totalMs,
+        attempts
+      );
     this.observer?.onFinish?.(out);
     return out;
   }
@@ -198,7 +271,17 @@ const latencyMs = Math.round(performance.now() - attemptStart);
     requestId: string,
     operation: OperationName
   ): void {
-    this.observer?.onAttempt?.({ provider, attempt, ok, latencyMs, transient, error, errorCode, requestId, operation });
+    this.observer?.onAttempt?.({
+      provider,
+      attempt,
+      ok,
+      latencyMs,
+      transient,
+      error,
+      errorCode,
+      requestId,
+      operation,
+    });
   }
 }
 

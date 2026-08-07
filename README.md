@@ -23,7 +23,7 @@
 ### Core Principles
 
 - **Unified contracts** — A stable interface (`create()`, `send()`, `status()`, `cancel()`) mapped to each provider
-- **Pluggable strategies** — round‑robin, load‑balance, most‑fast/lowest‑latency, failover
+- **Pluggable strategies** — round‑robin, load‑balance, most‑fast/lowest‑latency, failover, geo‑rule (regional)
 - **Resilience** — retries, circuit breaker and automatic fallback per operation
 - **Observability** — latency, errors, cost spread and auditable `providerReceipt`
 - **Governance** — policies per tenant/route, rate‑limit, normalized webhooks
@@ -83,12 +83,13 @@ console.log(result.id, result.provider, result.status);
 
 ## Strategies
 
-| Strategy       | Description                                   |
-| -------------- | --------------------------------------------- |
-| `round_robin`  | Distributes volume equally across providers   |
-| `load_balance` | Weighted selection by provider capacity      |
-| `most_fast`    | Picks the lowest‑latency eligible provider    |
-| `failover`     | Tries providers in order until one succeeds   |
+| Strategy       | Description                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `round_robin`  | Distributes volume equally across providers                                              |
+| `load_balance` | Weighted selection by provider capacity                                                  |
+| `most_fast`    | Picks the lowest‑latency eligible provider                                               |
+| `failover`     | Tries providers in order until one succeeds                                              |
+| `geo_rule`     | Routes by payload coordinate over GeoJSON regions (`area` / `volume` with altitude band) |
 
 ## Releases
 

@@ -51,9 +51,14 @@
     "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
+    "@types/geojson": "^7946.0.16",
     "@vitest/coverage-v8": "^2.1.0",
     "tsup": "^8.3.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/helpers": "^7.4.0"
   }
 }

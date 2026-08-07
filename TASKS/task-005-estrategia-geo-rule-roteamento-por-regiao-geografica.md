@@ -52,33 +52,33 @@ type GeoShape =
 
 ### 1. Testes primeiro (TDD — red/green)
 
-- [ ] `selectGeoRule` com ponto dentro do footprint de `area` → `{ kind: 'hit', provider }`
-- [ ] ponto fora de todas as regras → `{ kind: 'unmatched' }`
-- [ ] coordenada ausente/inválida → `{ kind: 'bad_payload' }`
-- [ ] coordenada fora da faixa (`lng` > 180 ou `lat` > 90) → `{ kind: 'bad_payload' }`
-- [ ] multipolygon com buraco: ponto no buraco → `{ kind: 'unmatched' }`
-- [ ] `volume`: ponto no footprint e `alt` dentro da faixa → `{ kind: 'hit', provider }`
-- [ ] `volume`: ponto no footprint, `alt` abaixo de `minAltitude` → não casa (segue para a próxima regra)
-- [ ] `volume`: ponto no footprint, `alt` acima de `maxAltitude` → não casa
-- [ ] `volume` com `minAltitude` ausente → aceita qualquer altitude acima do chão
-- [ ] `volume`: ponto no footprint mas payload sem `alt` → `{ kind: 'bad_payload' }`
-- [ ] `volume` com `minAltitude` e `maxAltitude` ausentes → `{ kind: 'bad_payload' }` (config inválida, volume exige ao menos uma borda)
-- [ ] `volume` com `minAltitude` > `maxAltitude` → `{ kind: 'bad_payload' }`
-- [ ] duas regras sobrepostas → `{ kind: 'fallback', pool }` com providers na ordem do config e sem duplicatas
-- [ ] `geoRule` delega a `fallbackStrategy` (ex.: `most_fast`) e retorna `Provider`
-- [ ] `geoRule` lança `GeoRuleError` com `code` discriminado
-- [ ] router: `geo_bad_payload` / `geo_unmatched` viram `OperationResult` `failed` com esses codes
+- [x] `selectGeoRule` com ponto dentro do footprint de `area` → `{ kind: 'hit', provider }`
+- [x] ponto fora de todas as regras → `{ kind: 'unmatched' }`
+- [x] coordenada ausente/inválida → `{ kind: 'bad_payload' }`
+- [x] coordenada fora da faixa (`lng` > 180 ou `lat` > 90) → `{ kind: 'bad_payload' }`
+- [x] multipolygon com buraco: ponto no buraco → `{ kind: 'unmatched' }`
+- [x] `volume`: ponto no footprint e `alt` dentro da faixa → `{ kind: 'hit', provider }`
+- [x] `volume`: ponto no footprint, `alt` abaixo de `minAltitude` → não casa (segue para a próxima regra)
+- [x] `volume`: ponto no footprint, `alt` acima de `maxAltitude` → não casa
+- [x] `volume` com `minAltitude` ausente → aceita qualquer altitude acima do chão
+- [x] `volume`: ponto no footprint mas payload sem `alt` → `{ kind: 'bad_payload' }`
+- [x] `volume` com `minAltitude` e `maxAltitude` ausentes → `{ kind: 'bad_payload' }` (config inválida, volume exige ao menos uma borda)
+- [x] `volume` com `minAltitude` > `maxAltitude` → `{ kind: 'bad_payload' }`
+- [x] duas regras sobrepostas → `{ kind: 'fallback', pool }` com providers na ordem do config e sem duplicatas
+- [x] `geoRule` delega a `fallbackStrategy` (ex.: `most_fast`) e retorna `Provider`
+- [x] `geoRule` lança `GeoRuleError` com `code` discriminado
+- [x] router: `geo_bad_payload` / `geo_unmatched` viram `OperationResult` `failed` com esses codes
 
 ### 2. Dependências (`packages/core/package.json`)
 
-- [ ] `@turf/helpers` (tipo `MultiPolygon`)
-- [ ] `@turf/boolean-point-in-polygon` (teste de ponto em multipolygon, com suporte a buracos)
+- [x] `@types/geojson` (tipo `MultiPolygon`; `@turf/helpers` não o re-exporta)
+- [x] `@turf/boolean-point-in-polygon` (teste de ponto em multipolygon, com suporte a buracos)
 
 ### 3. Tipos (`packages/core/src/types.ts`)
 
-- [ ] `'geo_rule'` no union `StrategyName`
-- [ ] `GeoErrorCode = 'geo_bad_payload' | 'geo_unmatched'`
-- [ ] Config no `OperationPolicy`:
+- [x] `'geo_rule'` no union `StrategyName`
+- [x] `GeoErrorCode = 'geo_bad_payload' | 'geo_unmatched'`
+- [x] Config no `OperationPolicy`:
   ```ts
   geo?: {
     field: string;
@@ -89,39 +89,39 @@ type GeoShape =
     fallbackStrategy?: StrategyName;
   }
   ```
-- [ ] `GeoShape = { kind: 'area'; multipolygon: MultiPolygon } | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number }`
-- [ ] Type guard `isGeoShape(value): value is GeoShape` (volume exige ao menos uma borda; `minAltitude` ≤ `maxAltitude`)
-- [ ] `GeoCoordinate = [lng: number, lat: number, alt?: number]` (tupla nomeada)
-- [ ] Type guard `isGeoCoordinate(value): value is GeoCoordinate` com faixa de lng/lat e altitude em metros
-- [ ] `GeoRuleError extends Error` com `code: GeoErrorCode`
+- [x] `GeoShape = { kind: 'area'; multipolygon: MultiPolygon } | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number }`
+- [x] Type guard `isGeoShape(value): value is GeoShape` (volume exige ao menos uma borda; `minAltitude` ≤ `maxAltitude`)
+- [x] `GeoCoordinate = [lng: number, lat: number, alt?: number]` (tupla nomeada)
+- [x] Type guard `isGeoCoordinate(value): value is GeoCoordinate` com faixa de lng/lat e altitude em metros
+- [x] `GeoRuleError extends Error` com `code: GeoErrorCode`
 
 ### 4. Estratégia (`packages/core/src/strategies.ts`)
 
-- [ ] `SelectionContext` ganha `payload` e `geo`
-- [ ] `selectGeoRule(ctx): GeoRuleOutcome` (pura, sem efeitos colaterais)
-- [ ] `geoRule: Strategy` (adaptador que mapeia o outcome)
-- [ ] Registrar no record `strategies` e exportar `geoRule`
+- [x] `SelectionContext` ganha `payload` e `geo`
+- [x] `selectGeoRule(config, payload, eligible): GeoRuleOutcome` (pura, sem efeitos colaterais)
+- [x] `geoRule: Strategy` (adaptador que mapeia o outcome)
+- [x] Registrar no record `strategies` e exportar `geoRule`
 
 ### 5. Router (`packages/core/src/router.ts`)
 
-- [ ] Passar `payload` e `geo` (de `opPolicy`) ao `selectionCtx`
-- [ ] Capturar `GeoRuleError` na seleção → `fail(requestId, operation, error.code, ...)`
-- [ ] `fallbackStrategy` default `round_robin`
+- [x] Passar `payload` e `geo` (de `opPolicy`) ao `selectionCtx`
+- [x] Capturar `GeoRuleError` na seleção → `fail(requestId, operation, error.code, ...)`
+- [x] `fallbackStrategy` default `round_robin`
 
 ### 6. Documentação
 
-- [ ] README do `@layerall/core`: entrada na tabela de estratégias com exemplo de config
+- [x] README do `@layerall/core`: entrada na tabela de estratégias com exemplo de config
 
 ## Versionamento
 
 **Major version** (`@layerall/core@2.0.0`) — precedente da task-004:
 
-| Mudança | Impacto |
-|---|---|
-| `StrategyName` ganha `'geo_rule'` | Switch/pattern-match exaustivos quebram |
+| Mudança                                    | Impacto                                             |
+| ------------------------------------------ | --------------------------------------------------- |
+| `StrategyName` ganha `'geo_rule'`          | Switch/pattern-match exaustivos quebram             |
 | `SelectionContext` ganha `payload` e `geo` | Contexto interno, mas exportado — adição não quebra |
-| `OperationPolicy.geo?` | **Não quebra** (campo opcional) |
-| Primeiras runtime deps (`@turf/*`) | Impacto de bundle passa a existir no core |
+| `OperationPolicy.geo?`                     | **Não quebra** (campo opcional)                     |
+| Primeiras runtime deps (`@turf/*`)         | Impacto de bundle passa a existir no core           |
 
 `semantic-release` detecta via conventional commits — usar `feat!:` ou `BREAKING CHANGE` no footer.
 
@@ -173,7 +173,15 @@ const router = new Router({
               rules: [
                 { providers: ['br'], shape: { kind: 'area', multipolygon: brasilMultipolygon } },
                 { providers: ['us'], shape: { kind: 'area', multipolygon: euaMultipolygon } },
-                { providers: ['uav'], shape: { kind: 'volume', multipolygon: zonaDeVoo, minAltitude: 120, maxAltitude: 600 } },
+                {
+                  providers: ['uav'],
+                  shape: {
+                    kind: 'volume',
+                    multipolygon: zonaDeVoo,
+                    minAltitude: 120,
+                    maxAltitude: 600,
+                  },
+                },
               ],
               fallbackStrategy: 'most_fast',
             },
@@ -194,3 +202,13 @@ Coordenada em São Paulo → `br`; em Nova York → `us`; dentro do footprint de
 - Fluxo `execute()` em `packages/core/src/router.ts:42-121`
 - Turf `booleanPointInPolygon`: https://turfjs.org/docs/api/booleanPointInPolygon
 - Precedente de versão quebrada: task-004 (`StrategyName` ganhou `'priority_race'`)
+
+### Arquivos alterados
+
+- `packages/core/src/types.ts` — `StrategyName` + `geo_rule`, `GeoCoordinate`, `GeoShape`, `GeoRuleConfig`, `OperationPolicy.geo?`, `GeoErrorCode`, `GeoRuleError`
+- `packages/core/src/geo-rule.ts` — (novo) `isGeoCoordinate`, `isGeoShape`, `selectGeoRule` (puro)
+- `packages/core/src/strategies.ts` — `SelectionContext.payload`/`geo?`, adaptador `geoRule`, registro em `strategies`
+- `packages/core/src/router.ts` — passa `payload`/`geo` ao ctx, captura `GeoRuleError` → `fail(code)`
+- `packages/core/src/geo-rule.test.ts` — (novo) testes de guards + `selectGeoRule`
+- `packages/core/package.json` — deps `@turf/boolean-point-in-polygon`, `@types/geojson`, `@turf/helpers`
+- `packages/core/README.md` e `README.md` — entrada `geo_rule` na tabela de estratégias

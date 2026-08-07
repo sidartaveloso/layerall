@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { MultiPolygon } from 'geojson';
 import { Router } from './router.js';
-import type {
-  AttemptLog,
-  OperationName,
-  PolicyDocument,
-  Provider,
-  StrategyName,
-} from './types.js';
+import type { AttemptLog, OperationName, PolicyDocument, Provider, StrategyName } from './types.js';
 
 const mkProvider = (
   id: string,
@@ -128,5 +123,105 @@ describe('Router', () => {
     const res = await router.execute('create', basePayload, { strategy: 'failover' });
     expect(res.status).toBe('succeeded');
     expect(cap.started()?.strategy).toBe('failover');
+  });
+});
+
+const box = (lngMin: number, latMin: number, lngMax: number, latMax: number): MultiPolygon => ({
+  type: 'MultiPolygon',
+  coordinates: [
+    [
+      [
+        [lngMin, latMin],
+        [lngMax, latMin],
+        [lngMax, latMax],
+        [lngMin, latMax],
+        [lngMin, latMin],
+      ],
+    ],
+  ],
+});
+
+describe('Router geo_rule', () => {
+  const geoPolicy = (): PolicyDocument => ({
+    tenants: {
+      default: {
+        providers: ['br', 'us'],
+        operations: {
+          create: {
+            strategy: 'geo_rule',
+            timeoutMs: 1000,
+            geo: {
+              field: 'location',
+              rules: [
+                { providers: ['br'], shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) } },
+                { providers: ['us'], shape: { kind: 'area', multipolygon: box(20, 20, 40, 40) } },
+              ],
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const geoRouter = () =>
+    new Router({
+      policy: geoPolicy(),
+      providers: { br: mkProvider('br'), us: mkProvider('us') },
+    });
+
+  it('routes to the provider of the matched region', async () => {
+    const res = await geoRouter().execute('create', { data: { location: [0, 0] } });
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('br');
+  });
+
+  it('fails with geo_unmatched when the point is in no region', async () => {
+    const res = await geoRouter().execute('create', { data: { location: [50, 50] } });
+    expect(res.status).toBe('failed');
+    expect(res.error?.code).toBe('geo_unmatched');
+  });
+
+  it('fails with geo_bad_payload when the coordinate is invalid', async () => {
+    const res = await geoRouter().execute('create', { data: { location: [200, 0] } });
+    expect(res.status).toBe('failed');
+    expect(res.error?.code).toBe('geo_bad_payload');
+  });
+
+  it('applies the fallbackStrategy across matched regions', async () => {
+    const router = new Router({
+      policy: {
+        tenants: {
+          default: {
+            providers: ['slow', 'fast'],
+            operations: {
+              create: {
+                strategy: 'geo_rule',
+                geo: {
+                  field: 'location',
+                  rules: [
+                    {
+                      providers: ['slow'],
+                      shape: { kind: 'area', multipolygon: box(-10, -10, 10, 10) },
+                    },
+                    {
+                      providers: ['fast'],
+                      shape: { kind: 'area', multipolygon: box(-5, -5, 15, 15) },
+                    },
+                  ],
+                  fallbackStrategy: 'most_fast',
+                },
+              },
+            },
+          },
+        },
+      },
+      providers: {
+        slow: mkProvider('slow', 'ok', 900),
+        fast: mkProvider('fast', 'ok', 50),
+      },
+    });
+    const res = await router.execute('create', { data: { location: [0, 0] } });
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('fast');
   });
 });

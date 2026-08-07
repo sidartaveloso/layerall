@@ -1,8 +1,10 @@
+import type { MultiPolygon } from 'geojson';
+
 /** Canonical operations an orchestrator exposes to clients. */
 export type OperationName = 'create' | 'send' | 'status' | 'cancel';
 
 /** Pluggable routing strategies. */
-export type StrategyName = 'round_robin' | 'load_balance' | 'most_fast' | 'failover';
+export type StrategyName = 'round_robin' | 'load_balance' | 'most_fast' | 'failover' | 'geo_rule';
 
 /** A registered provider implementation. Adapters map domain calls to `invoke`. */
 export interface Provider<TContext = unknown, TResult = unknown> {
@@ -84,6 +86,47 @@ export interface OperationPolicy {
   weights?: Record<string, number>;
   /** Optional short cache TTL for idempotent reads such as `status`. */
   cacheTtlMs?: number;
+  /** Geographic routing rules used by the `geo_rule` strategy. */
+  geo?: GeoRuleConfig;
+}
+
+/** A position in WGS 84; altitude in meters. GeoJSON order: [lng, lat, alt?]. */
+export type GeoCoordinate = [lng: number, lat: number, alt?: number];
+
+/**
+ * Region shape. `area` matches on the 2D footprint only; `volume` also requires
+ * the point altitude to fall inside `[minAltitude, maxAltitude]` (a missing
+ * bound is open-ended). A `volume` must declare at least one bound.
+ */
+export type GeoShape =
+  | { kind: 'area'; multipolygon: MultiPolygon }
+  | { kind: 'volume'; multipolygon: MultiPolygon; minAltitude?: number; maxAltitude?: number };
+
+/** Geographic routing rules keyed by the `geo_rule` strategy. */
+export interface GeoRuleConfig {
+  /** Key in `payload.data` holding a `GeoCoordinate`. */
+  field: string;
+  rules: Array<{
+    /** Provider ids served by this region, in priority order. */
+    providers: string[];
+    shape: GeoShape;
+  }>;
+  /** Strategy applied among the providers of every matched rule (default `round_robin`). */
+  fallbackStrategy?: StrategyName;
+}
+
+/** Error codes raised by the `geo_rule` strategy. */
+export type GeoErrorCode = 'geo_bad_payload' | 'geo_unmatched';
+
+/** Error thrown by `geo_rule` when selection cannot resolve to a provider. */
+export class GeoRuleError extends Error {
+  readonly code: GeoErrorCode;
+
+  constructor(code: GeoErrorCode, message: string) {
+    super(message);
+    this.name = 'GeoRuleError';
+    this.code = code;
+  }
 }
 
 /** Flags set by the client on a per-request basis to override policy. */
