@@ -1,7 +1,11 @@
 import type { MultiPolygon } from 'geojson';
 
-/** Canonical operations an orchestrator exposes to clients. */
-export type OperationName = 'create' | 'send' | 'status' | 'cancel';
+/**
+ * Operation names an orchestrator exposes to clients. The canonical literals
+ * keep autocomplete in the editor, while `(string & {})` lets you use any
+ * domain-specific name (e.g. `consulta-placa`) without a cast.
+ */
+export type OperationName = 'create' | 'send' | 'status' | 'cancel' | (string & {});
 
 /** Pluggable routing strategies. */
 export type StrategyName =

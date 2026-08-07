@@ -1,8 +1,11 @@
-import type { OperationName, PolicyDocument, StrategyName } from '@layerall/core';
+import type { PolicyDocument, StrategyName } from '@layerall/core';
 
-const ALL_OPS: OperationName[] = ['create', 'send', 'status', 'cancel'];
+/** Default operations the `init` scaffold generates — not an engine constraint. */
+type CanonicalOperation = 'create' | 'send' | 'status' | 'cancel';
 
-const STRATEGIES_PER_OP: Record<OperationName, StrategyName> = {
+const ALL_OPS: CanonicalOperation[] = ['create', 'send', 'status', 'cancel'];
+
+const STRATEGIES_PER_OP: Record<CanonicalOperation, StrategyName> = {
   create: 'round_robin',
   send: 'load_balance',
   status: 'most_fast',

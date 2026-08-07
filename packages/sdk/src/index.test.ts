@@ -41,6 +41,18 @@ describe('Orchestrator SDK', () => {
     expect((calls[0].init?.headers as Record<string, string>).Authorization).toBe('Bearer key_x');
   });
 
+  it('accepts custom operation names and routes them to the encoded endpoint', async () => {
+    const { fn, calls } = fakeFetch({});
+    const client = new Orchestrator({
+      apiKey: 'k',
+      baseUrl: 'https://api.allx.com',
+      fetchImpl: fn,
+    });
+    const res = await client.operation('consulta-placa', { payload: { data: {} } });
+    expect(res.status).toBe('succeeded');
+    expect(calls[0].url).toBe('https://api.allx.com/v1/operation/consulta-placa');
+  });
+
   it('forwards strategy/timeout as body and throws OrchestratorError on failure', async () => {
     const { fn, calls } = fakeFetch({
       'https://api.allx.com/v1/operation/send': {

@@ -134,6 +134,49 @@ describe('Router', () => {
   });
 });
 
+describe('Router custom operations', () => {
+  const customPolicy = (strategy: StrategyName): PolicyDocument => ({
+    tenants: {
+      default: {
+        providers: ['providerA', 'providerB'],
+        operations: { 'consulta-placa': { strategy, timeoutMs: 1000 } },
+      },
+    },
+  });
+
+  it('executes an arbitrary operation name with failover and carries it to result, observer and provider', async () => {
+    const providers: Record<string, Provider> = {
+      providerA: mkProvider('providerA'),
+      providerB: mkProvider('providerB'),
+    };
+    const cap = capture();
+    const router = new Router({
+      policy: customPolicy('failover'),
+      providers,
+      observer: cap.observer,
+    });
+    const res = await router.execute('consulta-placa', basePayload);
+    expect(res.status).toBe('succeeded');
+    expect(res.operation).toBe('consulta-placa');
+    expect((res.result as { op: string }).op).toBe('consulta-placa');
+    expect(cap.started()?.operation).toBe('consulta-placa');
+    expect(cap.attempts).toHaveLength(1);
+    expect(cap.attempts[0].operation).toBe('consulta-placa');
+  });
+
+  it('routes an arbitrary operation name with priority_race', async () => {
+    const providers: Record<string, Provider> = {
+      providerA: mkProvider('providerA', 'ok', 10),
+      providerB: mkProvider('providerB', 'ok', 30),
+    };
+    const router = new Router({ policy: customPolicy('priority_race'), providers });
+    const res = await router.execute('consulta-placa', basePayload);
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('providerA');
+    expect(res.operation).toBe('consulta-placa');
+  });
+});
+
 const box = (lngMin: number, latMin: number, lngMax: number, latMax: number): MultiPolygon => ({
   type: 'MultiPolygon',
   coordinates: [

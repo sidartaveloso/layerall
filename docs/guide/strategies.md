@@ -124,3 +124,16 @@ E o cliente ainda pode fazer override:
 // mesmo que a policy diga round_robin, este request específico usa failover
 await router.execute('create', payload, { strategy: 'failover' });
 ```
+
+## Nomes de operação customizados
+
+O `OperationName` não é um union fechado: além dos 4 nomes canônicos
+(`create`, `send`, `status`, `cancel`), o `Router` aceita qualquer string —
+`consulta-placa`, `reverse`, `buscar`, o nome que fizer sentido pro seu domínio.
+Os canônicos são apenas os defaults de autocomplete do editor e o conjunto
+gerado pelo `init` do CLI; não são uma restrição da engine.
+
+```ts
+// sem cast, direto no editor
+await router.execute('consulta-placa', { data: { placa: 'ABC1D23' } });
+```

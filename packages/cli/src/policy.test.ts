@@ -13,6 +13,19 @@ describe('policy', () => {
     expect(ops.cancel?.failover).toBe(true);
   });
 
+  it('validatePolicy accepts policies with custom operation names', () => {
+    expect(
+      validatePolicy({
+        tenants: {
+          default: {
+            providers: ['providerA'],
+            operations: { 'consulta-placa': { strategy: 'failover' } },
+          },
+        },
+      })
+    ).toEqual([]);
+  });
+
   it('validatePolicy flags malformed shapes', () => {
     expect(validatePolicy(null)).toContain('policy must be an object');
     expect(validatePolicy({})).toContain('missing tenants map');
