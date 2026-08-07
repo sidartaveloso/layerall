@@ -45,7 +45,7 @@ meu-projeto/
   "private": true,
   "type": "module",
   "dependencies": {
-    "@layerall/core": "^0.1.0",
+    "@layerall/core": "^2.0.0",
     "fastify": "^5.0.0"
   }
 }
