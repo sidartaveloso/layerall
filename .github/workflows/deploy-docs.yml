@@ -43,7 +43,6 @@ jobs:
         uses: actions/configure-pages@v4
         with:
           enablement: true
-          static_site_generator: vitepress
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
