@@ -1,6 +1,6 @@
 {
   "name": "@layerall/plugin-prometheus",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "Prometheus observer for LayerAll Router — ready-to-use metrics via prom-client",
   "keywords": [
     "prometheus",

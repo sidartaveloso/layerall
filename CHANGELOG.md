@@ -1,3 +1,12 @@
+# [2.1.0](https://github.com/sidartaveloso/layerall/compare/v2.0.2...v2.1.0) (2026-08-12)
+
+
+### Features
+
+* **core:** estrategia fan_out + mergeFanOut ([6843ba4](https://github.com/sidartaveloso/layerall/commit/6843ba4a50d423154f98d7de495635df96bc2f74))
+* **core:** isFanOutResult/mergeFanOut — consumir fan_out sem parâmetro de merge no execute() ([e0aa6cf](https://github.com/sidartaveloso/layerall/commit/e0aa6cf5b574bdd8d71e7138911722257519b224))
+* **core:** nova strategy fan_out — dispara todos os providers e agrega todos os resultados ([26f8157](https://github.com/sidartaveloso/layerall/commit/26f8157876b748706574f5299c283cd7f298e4a2))
+
 ## [2.0.2](https://github.com/sidartaveloso/layerall/compare/v2.0.1...v2.0.2) (2026-08-12)
 
 ### Bug Fixes
