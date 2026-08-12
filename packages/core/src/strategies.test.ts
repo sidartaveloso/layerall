@@ -141,6 +141,25 @@ describe('strategies', () => {
     expect(geoRule(ctx)?.id).toBe('fast');
   });
 
+  it('geoRule returns the whole pool, in order, when fallbackStrategy is failover (so the Router can cascade)', () => {
+    const ctx = ctxFor([mk({ id: 'first' }), mk({ id: 'second' })], {
+      strategy: 'geo_rule',
+      geo: geoConfig({
+        rules: [
+          { providers: ['first'], multipolygon: box(-10, -10, 10, 10) },
+          { providers: ['second'], multipolygon: box(-5, -5, 15, 15) },
+        ],
+        fallbackStrategy: 'failover',
+      }),
+      payload: { data: { location: [0, 0] } },
+    });
+
+    const selection = geoRule(ctx);
+
+    expect(Array.isArray(selection)).toBe(true);
+    expect((selection as Provider[]).map(p => p.id)).toEqual(['first', 'second']);
+  });
+
   it('geoRule defaults to round_robin across multiple matches', () => {
     const rrIndex = { value: 0 };
     const ctx = () =>

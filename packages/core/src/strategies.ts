@@ -88,6 +88,12 @@ export const geoRule: Strategy = ctx => {
       if (fallback === 'geo_rule') {
         throw new GeoRuleError('geo_bad_payload', 'fallbackStrategy não pode ser geo_rule');
       }
+      // 'failover' precisa devolver o pool inteiro (não delegar pra strategies.failover,
+      // que devolve só eligible[0]) para que o Router cascateie pros próximos candidatos
+      // quando o primeiro falhar — mesmo mecanismo usado por priority_race.
+      if (fallback === 'failover') {
+        return outcome.pool;
+      }
       return strategies[fallback]({ ...ctx, strategy: fallback, eligible: outcome.pool });
     }
     case 'unmatched':

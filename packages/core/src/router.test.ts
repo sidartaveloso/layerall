@@ -269,6 +269,40 @@ describe('Router geo_rule', () => {
     expect(res.status).toBe('succeeded');
     expect(res.provider).toBe('fast');
   });
+
+  it('cascades to the next provider of an overlapping region when fallbackStrategy is failover and the first fails', async () => {
+    const router = new Router({
+      policy: {
+        tenants: {
+          default: {
+            providers: ['first', 'second'],
+            operations: {
+              create: {
+                strategy: 'geo_rule',
+                geo: {
+                  field: 'location',
+                  rules: [
+                    { providers: ['first'], multipolygon: box(-10, -10, 10, 10) },
+                    { providers: ['second'], multipolygon: box(-5, -5, 15, 15) },
+                  ],
+                  fallbackStrategy: 'failover',
+                },
+              },
+            },
+          },
+        },
+      },
+      providers: {
+        first: mkProvider('first', 'fatal'),
+        second: mkProvider('second'),
+      },
+    });
+
+    const res = await router.execute('create', { data: { location: [0, 0] } });
+
+    expect(res.status).toBe('succeeded');
+    expect(res.provider).toBe('second');
+  });
 });
 
 describe('Router priority_race', () => {

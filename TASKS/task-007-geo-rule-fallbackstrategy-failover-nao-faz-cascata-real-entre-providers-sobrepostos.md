@@ -10,26 +10,27 @@ geoRule() delega o caso 'fallback' (regiões sobrepostas) pra strategies[fallbac
 
 ## Tasks
 
-- [ ] `strategies.test.ts` (TDD, vermelho primeiro): `geoRule` com `fallbackStrategy:
+- [x] `strategies.test.ts` (TDD, vermelho primeiro): `geoRule` com `fallbackStrategy:
       'failover'` e regiões sobrepostas deve devolver o `pool` inteiro (array, ordem
       preservada), não só `pool[0]` — mirroring o que `priorityRace` já faz
-- [ ] `strategies.ts`: no branch `case 'fallback'` de `geoRule`, tratar `fallback ===
+- [x] `strategies.ts`: no branch `case 'fallback'` de `geoRule`, tratar `fallback ===
       'failover'` devolvendo `outcome.pool` diretamente em vez de delegar pra
       `strategies.failover(ctx)` (que devolve só `eligible[0]`)
-- [ ] `router.test.ts` (integração, dentro de `describe('Router geo_rule')`): regiões
+- [x] `router.test.ts` (integração, dentro de `describe('Router geo_rule')`): regiões
       sobrepostas com `fallbackStrategy: 'failover'`, provider do pool[0] falha (erro não
       transiente) — o `Router` deve tentar o `pool[1]` e suceder; hoje ele propaga o erro do
       primeiro sem tentar o segundo
-- [ ] Rodar suíte completa (`pnpm --filter @layerall/core test`) — confirmar que os testes
+- [x] Rodar suíte completa (`pnpm --filter @layerall/core test`) — confirmar que os testes
       existentes de `geoRule` (hit único, fallback `most_fast`, `round_robin` default,
       `geo_unmatched`, `geo_bad_payload`) continuam verdes — a mudança só afeta o branch
       `fallback === 'failover'`
-- [ ] Changeset (`pnpm changeset`) — patch/minor em `@layerall/core` (correção de
+- [x] Changeset (`pnpm changeset`) — patch em `@layerall/core` (correção de
       comportamento, não é breaking change de API pública)
-- [ ] Depois de publicado: bumpar `@layerall/core` no `packages/geocode-client` do geohub,
-      trocar o teste que hoje documenta o bug (`geocode-client-impl.test.ts`, describe
-      "regiões sobrepostas: fallbackStrategy failover escolhe o primeiro provider...") por um
-      que confirma a cascata real, e remover a nota de limitação do README do geocode-client
+- [ ] Depois de publicado (merge do PR → release automatizado via `release.yml`): bumpar
+      `@layerall/core` no `packages/geocode-client` do geohub, trocar o teste que hoje
+      documenta o bug (`geocode-client-impl.test.ts`, describe "regiões sobrepostas:
+      fallbackStrategy failover escolhe o primeiro provider...") por um que confirma a
+      cascata real, e remover a nota de limitação do README do geocode-client
 
 ## Notes
 
