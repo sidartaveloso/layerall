@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/sidartaveloso/layerall/compare/v2.0.0...v2.0.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* **core:** geo_rule fallbackStrategy failover cascateia entre providers sobrepostos ([f9035a0](https://github.com/sidartaveloso/layerall/commit/f9035a0a5868b94f34d5c0a94ce8c2f5c34ab5b4))
+
 # Changelog
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
