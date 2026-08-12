@@ -1,6 +1,6 @@
 # Task 007 — geo_rule: fallbackStrategy failover não faz cascata real entre providers sobrepostos
 
-Status: in-progress
+Status: done
 Type: fix
 Assignee: sidartaveloso
 
@@ -26,11 +26,11 @@ geoRule() delega o caso 'fallback' (regiões sobrepostas) pra strategies[fallbac
       `fallback === 'failover'`
 - [x] Changeset (`pnpm changeset`) — patch em `@layerall/core` (correção de
       comportamento, não é breaking change de API pública)
-- [ ] Depois de publicado (merge do PR → release automatizado via `release.yml`): bumpar
-      `@layerall/core` no `packages/geocode-client` do geohub, trocar o teste que hoje
-      documenta o bug (`geocode-client-impl.test.ts`, describe "regiões sobrepostas:
-      fallbackStrategy failover escolhe o primeiro provider...") por um que confirma a
-      cascata real, e remover a nota de limitação do README do geocode-client
+- [x] Depois de publicado (`@layerall/core@2.0.2`): bumpado `@layerall/core` no
+      `packages/geocode-client` do geohub (`^2.0.0` → `^2.0.2`), trocado o teste que
+      documentava o bug por dois que confirmam a cascata real (sucesso no segundo provider
+      quando o primeiro falha; erro claro quando os dois falham), e atualizada a nota do
+      README do geocode-client. Confirmado também manualmente contra staging real.
 
 ## Notes
 
