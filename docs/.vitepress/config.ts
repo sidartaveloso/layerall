@@ -32,6 +32,7 @@ export default defineConfig({
         items: [
           { text: 'AllGeo (geocode reverso)', link: '/tutorials/allgeo' },
           { text: 'AllAero (geo_rule 3D)', link: '/tutorials/allaero' },
+          { text: 'AllFleet (fan_out)', link: '/tutorials/allfleet' },
         ],
       },
       {

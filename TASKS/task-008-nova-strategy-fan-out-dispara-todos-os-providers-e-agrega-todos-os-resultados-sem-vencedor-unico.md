@@ -55,6 +55,19 @@ Todas as 6 strategies atuais (round_robin/load_balance/most_fast/failover/geo_ru
 - [x] Atualizar `docs/guide/strategies.md` com a nova strategy (mesmo padrão das outras 6)
 - [x] Changeset (`pnpm changeset`) — **minor** em `@layerall/core` (adiciona strategy nova +
       campo opcional em `OperationResult`, não quebra nada existente)
+- [x] **Adicionado depois (mesma sessão, 12/ago/2026):** `fan-out.ts` + `fan-out.test.ts`
+      (TDD, 7 casos) — `isFanOutResult(result)` (type guard: `results` só é opcional no
+      tipo porque a strategy vem de policy resolvida em runtime, não dá pra saber em
+      compile-time; a guard estreita isso onde você sabe) e `mergeFanOut(result, merge)`
+      (combina os `result`s bem-sucedidos, `TMerged` inferido do retorno de `merge`, nunca
+      anotado na mão). Decisão explícita de NÃO adicionar isso como parâmetro
+      (`merge?`) em `OperationRequestOptions`/`execute()` — só faria sentido pra uma entre
+      sete strategies (estado inválido representável), e mesclar já é trivial por fora.
+      Exportado em `index.ts`. Seção "Consumindo o resultado" adicionada em
+      `docs/guide/strategies.md` com o ADR completo do porquê. Novo tutorial
+      `docs/tutorials/allfleet.md` (agregação de frota de dois sistemas, dedup por placa —
+      o caso de uso real que motivou tudo isso) registrado no nav do VitePress; `pnpm run
+      build` da doc confirmado sem link quebrado
 - [ ] (fora do escopo desta task, fica registrado como próximo passo) Depois de publicado:
       usar em `geohub/packages/veiculo-client` (task-231 lá) — `listarVeiculos` passa a poder
       usar `strategy: 'fan_out'` e o merge/dedup (hoje em `merge-utils.ts`) vira lógica de
