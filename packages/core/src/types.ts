@@ -14,7 +14,8 @@ export type StrategyName =
   | 'most_fast'
   | 'failover'
   | 'geo_rule'
-  | 'priority_race';
+  | 'priority_race'
+  | 'fan_out';
 
 /** A registered provider implementation. Adapters map domain calls to `invoke`. */
 export interface Provider<TContext = unknown, TResult = unknown> {
@@ -54,6 +55,15 @@ export interface OperationPayload<TData = unknown> {
   data: TData;
 }
 
+/** Per-provider outcome collected by the `fan_out` strategy. */
+export interface FanOutEntry<TResult = unknown> {
+  provider: string;
+  status: 'succeeded' | 'failed';
+  result?: TResult;
+  error?: OperationError;
+  latencyMs: number;
+}
+
 /** Outcome returned to the client, normalized across providers. */
 export interface OperationResult<TResult = unknown> {
   id: string;
@@ -69,6 +79,8 @@ export interface OperationResult<TResult = unknown> {
   attempts: number;
   /** Stable receipt for audit/storage; derived from provider + requestId. */
   providerReceipt: string;
+  /** Present only when the operation strategy is `fan_out`: every provider's outcome, in policy order. The Router never merges `result`s itself — that's domain-specific and left to the caller. */
+  results?: FanOutEntry<TResult>[];
 }
 
 /** Normalized error surface. */

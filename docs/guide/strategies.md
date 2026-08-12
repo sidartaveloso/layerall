@@ -101,6 +101,76 @@ Dispara **todos os provedores elegíveis em paralelo** e retorna a primeira resp
 
 **Quando usar:** quando você quer a menor latência possível consultando todas as fontes ao mesmo tempo, aceitando o custo de chamar todas.
 
+## `fan_out`
+
+Dispara **todos os provedores elegíveis em paralelo** e espera **todos** resolverem (sucesso ou falha) — ao contrário de `priority_race`, nenhum provider é cancelado por causa de outro; não existe "vencedor".
+
+```ts
+{ "strategy": "fan_out", "timeoutMs": 4000 }
+```
+
+O resultado normal (`OperationResult.result`/`provider`) não faz sentido quando há vários providers — em vez disso, `OperationResult.results` traz um `FanOutEntry` por provider, na ordem da policy:
+
+```ts
+interface FanOutEntry<TResult> {
+  provider: string;
+  status: 'succeeded' | 'failed';
+  result?: TResult;
+  error?: OperationError;
+  latencyMs: number;
+}
+```
+
+- `OperationResult.status` é `'succeeded'` se **pelo menos um** provider teve sucesso, `'failed'` (código `all_failed`) só quando todos falham.
+- `OperationResult.provider` é a lista de ids dos providers disparados, separados por vírgula (ex.: `"pontual,sespes"`).
+- Timeout por provider: mesmo mecanismo do `priority_race` (`Provider.timeoutMs`/`timeoutMs` da operação) — mas um provider que estoura vira só uma entrada `failed` em `results`, sem afetar os outros.
+- O Router **não mescla** os `result`s de providers diferentes — isso é específico de domínio (ex.: dedup por chave de negócio) e fica por conta de quem chama, iterando `results`.
+
+**Quando usar:** quando a resposta certa é a **combinação** de várias fontes (ex.: "todos os veículos cadastrados nos dois sistemas"), não uma escolha entre elas. Se você precisa de UM resultado (mais rápido, mais confiável, primeiro disponível), use `priority_race`/`failover`/`most_fast` em vez disso.
+
+### Consumindo o resultado: `isFanOutResult` e `mergeFanOut`
+
+`OperationResult.results` só existe quando a strategy resolvida é `fan_out` — mas isso é uma informação de **runtime** (a strategy normalmente vem da policy, não da chamada), então o TypeScript não tem como saber isso sozinho no tipo de retorno de `execute()`. Em vez de fingir que dá, o pacote exporta uma type guard honesta:
+
+```ts
+import { isFanOutResult } from '@layerall/core';
+
+const result = await router.execute('listar', payload);
+
+if (isFanOutResult(result)) {
+  // aqui `result.results` não é mais opcional — TS já sabe
+  for (const entry of result.results) {
+    console.log(entry.provider, entry.status);
+  }
+}
+```
+
+Pra combinar os resultados bem-sucedidos numa resposta só, `mergeFanOut` — um helper pequeno e composable, **não** um parâmetro de `execute()` (ver [ADR sobre por que não](#por-que-nao-um-parametro-de-merge) mais abaixo):
+
+```ts
+import { mergeFanOut } from '@layerall/core';
+
+const veiculos = mergeFanOut(result, successful => {
+  const porPlaca = new Map<string, Veiculo>();
+  for (const lista of successful) {
+    for (const v of lista.data) porPlaca.set(v.placa, v);
+  }
+  return [...porPlaca.values()];
+});
+```
+
+`TMerged` (o tipo de `veiculos` acima) é **inferido** do retorno da função passada — nunca precisa anotar generic na mão. `mergeFanOut` lança um erro claro se `result` não veio de uma operação `fan_out` (evita mesclar silenciosamente algo que não devia).
+
+#### Por que não um parâmetro de merge? {#por-que-nao-um-parametro-de-merge}
+
+Cogitamos adicionar `merge?: (entries) => T` direto em `OperationRequestOptions`. Descartado por três motivos:
+
+1. **Só faz sentido pra uma strategy.** Passado com `failover`/`round_robin`, seria ignorado silenciosamente — um parâmetro que só é válido em combinações específicas é o tipo de estado que dá pra evitar representando de outro jeito.
+2. **Já é trivial de fazer por fora** — uma função de uma linha sobre `results`. Empurrar isso pra dentro de `execute()` não reduz complexidade, só muda onde ela mora.
+3. **Quebraria a simetria com `geo_rule`/`priority_race`**, que nunca tocam no `result` — só normalizam o envelope. `fan_out` fazendo diferente criaria uma exceção sem motivo forte.
+
+`isFanOutResult`/`mergeFanOut` resolvem a mesma necessidade como funções compostas de fora, sem adicionar estado inválido ao tipo de `execute()`.
+
 ## Combinando estratégias
 
 Você pode usar estratégias diferentes por operação na mesma policy:

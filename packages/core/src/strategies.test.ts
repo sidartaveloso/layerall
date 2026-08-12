@@ -5,6 +5,7 @@ import {
   mostFast,
   roundRobin,
   failover,
+  fanOut,
   geoRule,
   priorityRace,
   type SelectionContext,
@@ -114,6 +115,17 @@ describe('strategies', () => {
     expect(priorityRace(ctxFor([]))).toBeNull();
   });
 
+  it('fanOut returns every eligible provider in order', () => {
+    const eligible = [mk({ id: 'A' }), mk({ id: 'B' }), mk({ id: 'C' })];
+    const selection = fanOut(ctxFor(eligible));
+    expect(Array.isArray(selection)).toBe(true);
+    expect((selection as { id: string }[]).map(p => p.id)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('fanOut returns null for an empty pool', () => {
+    expect(fanOut(ctxFor([]))).toBeNull();
+  });
+
   it('geoRule returns the provider of the matched region', () => {
     const ctx = ctxFor([mk({ id: 'br' }), mk({ id: 'us' })], {
       strategy: 'geo_rule',
@@ -139,6 +151,25 @@ describe('strategies', () => {
       }
     );
     expect(geoRule(ctx)?.id).toBe('fast');
+  });
+
+  it('geoRule delegates fan_out generically as fallbackStrategy, returning the whole pool', () => {
+    const ctx = ctxFor([mk({ id: 'a' }), mk({ id: 'b' })], {
+      strategy: 'geo_rule',
+      geo: geoConfig({
+        rules: [
+          { providers: ['a'], multipolygon: box(-10, -10, 10, 10) },
+          { providers: ['b'], multipolygon: box(-5, -5, 15, 15) },
+        ],
+        fallbackStrategy: 'fan_out',
+      }),
+      payload: { data: { location: [0, 0] } },
+    });
+
+    const selection = geoRule(ctx);
+
+    expect(Array.isArray(selection)).toBe(true);
+    expect((selection as { id: string }[]).map(p => p.id)).toEqual(['a', 'b']);
   });
 
   it('geoRule returns the whole pool, in order, when fallbackStrategy is failover (so the Router can cascade)', () => {
