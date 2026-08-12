@@ -14,8 +14,8 @@ hero:
 features:
   - title: Trabalhe com um contrato
     details: Crie, envie, consulte, cancele — a interface é sempre a mesma. Quem roteia para cada provedor é o LayerAll.
-  - title: 6 estratégias plugáveis
-    details: round_robin, load_balance, most_fast, failover, geo_rule e priority_race. Troque sem mudar código do cliente.
+  - title: 7 estratégias plugáveis
+    details: round_robin, load_balance, most_fast, failover, geo_rule, priority_race e fan_out. Troque sem mudar código do cliente.
   - title: Resiliência nativa
     details: Retries com backoff, circuit breaker, fallback automático por operação. Pronto para produção.
   - title: Observabilidade

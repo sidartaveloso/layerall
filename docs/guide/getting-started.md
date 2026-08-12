@@ -22,7 +22,7 @@ npm install @layerall/sdk
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | **Provider** | Um adaptador que chama um provedor real (Google Maps, Stripe, etc.)                                                        |
 | **Policy**   | Um JSON que define quais provedores usar e qual estratégia por operação                                                    |
-| **Strategy** | Algoritmo que escolhe qual provedor será chamado (round_robin, load_balance, most_fast, failover, geo_rule, priority_race) |
+| **Strategy** | Algoritmo que escolhe qual provedor será chamado (round_robin, load_balance, most_fast, failover, geo_rule, priority_race, fan_out) |
 | **Router**   | O core: recebe uma operação, aplica a policy, executa a estratégia com retries e fallback                                  |
 | **Observer** | Hook opcional para coletar métricas de cada tentativa                                                                      |
 
