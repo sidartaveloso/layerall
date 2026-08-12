@@ -173,7 +173,7 @@ app.get('/veiculos', async (_req, reply) => {
   }
 
   // dedup por placa — lógica de domínio, o Router não faz isso por você.
-  const veiculos = mergeFanOut(result, (successful) => {
+  const veiculos = mergeFanOut(result, successful => {
     const porPlaca = new Map<string, Veiculo>();
     for (const pagina of successful) {
       for (const v of pagina.data) porPlaca.set(v.placa, v);
@@ -183,8 +183,8 @@ app.get('/veiculos', async (_req, reply) => {
 
   // full transparency: quais sistemas responderam, e quais falharam
   const falhas = result.results
-    .filter((entry) => entry.status === 'failed')
-    .map((entry) => ({ provider: entry.provider, erro: entry.error?.message }));
+    .filter(entry => entry.status === 'failed')
+    .map(entry => ({ provider: entry.provider, erro: entry.error?.message }));
 
   return { total: veiculos.length, veiculos, falhas };
 });

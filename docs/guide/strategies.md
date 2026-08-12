@@ -150,7 +150,7 @@ Pra combinar os resultados bem-sucedidos numa resposta só, `mergeFanOut` — um
 ```ts
 import { mergeFanOut } from '@layerall/core';
 
-const veiculos = mergeFanOut(result, (successful) => {
+const veiculos = mergeFanOut(result, successful => {
   const porPlaca = new Map<string, Veiculo>();
   for (const lista of successful) {
     for (const v of lista.data) porPlaca.set(v.placa, v);

@@ -422,7 +422,12 @@ export class Router {
             requestId,
             operation
           );
-          return { provider: provider.id, status: 'succeeded', result: result as TResult, latencyMs };
+          return {
+            provider: provider.id,
+            status: 'succeeded',
+            result: result as TResult,
+            latencyMs,
+          };
         } catch (err) {
           const latencyMs = Math.round(performance.now() - start);
           const transient = isTransient(err);

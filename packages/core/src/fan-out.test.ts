@@ -45,12 +45,17 @@ describe('mergeFanOut', () => {
     const result = baseResult({
       results: [
         { provider: 'a', status: 'succeeded', result: [1, 2], latencyMs: 5 },
-        { provider: 'b', status: 'failed', error: { code: 'x', message: 'falhou', provider: 'b' }, latencyMs: 3 },
+        {
+          provider: 'b',
+          status: 'failed',
+          error: { code: 'x', message: 'falhou', provider: 'b' },
+          latencyMs: 3,
+        },
         { provider: 'c', status: 'succeeded', result: [3], latencyMs: 8 },
       ],
     });
 
-    const merged = mergeFanOut(result, (successful) => successful.flat());
+    const merged = mergeFanOut(result, successful => successful.flat());
 
     expect(merged).toEqual([1, 2, 3]);
   });
@@ -60,7 +65,7 @@ describe('mergeFanOut', () => {
       results: [{ provider: 'a', status: 'succeeded', result: 'x', latencyMs: 5 }],
     });
 
-    const merged: number = mergeFanOut(result, (successful) => successful.length);
+    const merged: number = mergeFanOut(result, successful => successful.length);
 
     expect(merged).toBe(1);
   });
@@ -69,11 +74,16 @@ describe('mergeFanOut', () => {
     const result = baseResult({
       status: 'failed',
       results: [
-        { provider: 'a', status: 'failed', error: { code: 'x', message: 'falhou', provider: 'a' }, latencyMs: 5 },
+        {
+          provider: 'a',
+          status: 'failed',
+          error: { code: 'x', message: 'falhou', provider: 'a' },
+          latencyMs: 5,
+        },
       ],
     });
 
-    const merged = mergeFanOut(result, (successful) => successful.length);
+    const merged = mergeFanOut(result, successful => successful.length);
 
     expect(merged).toBe(0);
   });
@@ -81,8 +91,6 @@ describe('mergeFanOut', () => {
   it('throws a clear error when the result is not from a fan_out strategy', () => {
     const result = baseResult({ result: 'x' });
 
-    expect(() => mergeFanOut(result, (successful) => successful.length)).toThrow(
-      /fan_out/i,
-    );
+    expect(() => mergeFanOut(result, successful => successful.length)).toThrow(/fan_out/i);
   });
 });

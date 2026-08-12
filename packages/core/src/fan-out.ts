@@ -8,7 +8,7 @@ import type { FanOutEntry, OperationResult } from './types.js';
  * know it (e.g. right after a call you configured with `strategy: 'fan_out'`).
  */
 export function isFanOutResult<TResult>(
-  result: OperationResult<TResult>,
+  result: OperationResult<TResult>
 ): result is OperationResult<TResult> & { results: FanOutEntry<TResult>[] } {
   return result.results !== undefined;
 }
@@ -23,16 +23,19 @@ export function isFanOutResult<TResult>(
  */
 export function mergeFanOut<TResult, TMerged>(
   result: OperationResult<TResult>,
-  merge: (successful: TResult[]) => TMerged,
+  merge: (successful: TResult[]) => TMerged
 ): TMerged {
   if (!isFanOutResult(result)) {
     throw new Error(
-      'mergeFanOut só aceita OperationResult de uma operação com strategy fan_out (result.results ausente)',
+      'mergeFanOut só aceita OperationResult de uma operação com strategy fan_out (result.results ausente)'
     );
   }
 
   const successful = result.results
-    .filter((entry): entry is FanOutEntry<TResult> & { status: 'succeeded' } => entry.status === 'succeeded')
+    .filter(
+      (entry): entry is FanOutEntry<TResult> & { status: 'succeeded' } =>
+        entry.status === 'succeeded'
+    )
     .map(entry => entry.result as TResult);
 
   return merge(successful);

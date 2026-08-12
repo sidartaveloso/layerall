@@ -12,7 +12,7 @@ Todas as 6 strategies atuais (round_robin/load_balance/most_fast/failover/geo_ru
 
 - [x] `types.ts`: adicionar `'fan_out'` a `StrategyName`; novo tipo `FanOutEntry<TResult>` (
       `{ provider: string; status: 'succeeded' | 'failed'; result?: TResult; error?:
-      OperationError; latencyMs: number }`); adicionar `results?: FanOutEntry<TResult>[]` em
+OperationError; latencyMs: number }`); adicionar `results?: FanOutEntry<TResult>[]` em
       `OperationResult` — opcional, presente só quando a strategy é `fan_out`, sem quebrar o
       shape existente pras outras 6
 - [x] `strategies.ts` (TDD, vermelho primeiro): `fanOut: Strategy` — mesma forma de
@@ -21,26 +21,20 @@ Todas as 6 strategies atuais (round_robin/load_balance/most_fast/failover/geo_ru
 - [x] `router.test.ts` (TDD, vermelho primeiro): novo método privado `executeFanOut` —
       dispara todos os `targets` em paralelo via `Promise.all` (NÃO `Promise.race`/cancela-o-
       resto como `executeParallel`), espera todos resolverem (sucesso OU falha), popula
-      `results[]` com uma entrada por provider na ordem de `targets`. Casos a cobrir:
-      - todos sucedem → `status: 'succeeded'`, `results` com N entradas `succeeded`,
-        `provider` = ids concatenados por vírgula, `attempts` = N
-      - alguns falham, pelo menos um sucede → `status: 'succeeded'` no topo (parcial já é
-        sucesso), `results` mistura `succeeded`/`failed`, cada `failed` com seu próprio
-        `OperationError`
-      - todos falham → `status: 'failed'` no topo, `error.code = 'all_failed'`, `results`
-        só com entradas `failed`
-      - 1 único provider elegível → ainda popula `results` com 1 entrada (fan_out não vira
-        caminho sequencial de 1 item — consistência de shape importa mais que atalho)
-      - timeout por provider (mesmo mecanismo de `AbortController` de `executeParallel`,
-        `effectiveTimeout = explicitTimeoutMs ?? provider.timeoutMs ?? defaultTimeoutMs`) —
-        provider que estoura vira uma entrada `failed` com código de timeout/abort, os
-        outros continuam normalmente (SEM cancelar por causa do timeout de um vizinho —
-        diferença chave pra `priority_race`, que cancela os "perdedores" quando o vencedor
-        chega; aqui não tem "perdedor")
-      - `AttemptLog`/`Observer.onAttempt` continua disparando por provider, igual às outras
-        strategies (reusar `emitAttempt`)
+      `results[]` com uma entrada por provider na ordem de `targets`. Casos a cobrir: - todos sucedem → `status: 'succeeded'`, `results` com N entradas `succeeded`,
+      `provider` = ids concatenados por vírgula, `attempts` = N - alguns falham, pelo menos um sucede → `status: 'succeeded'` no topo (parcial já é
+      sucesso), `results` mistura `succeeded`/`failed`, cada `failed` com seu próprio
+      `OperationError` - todos falham → `status: 'failed'` no topo, `error.code = 'all_failed'`, `results`
+      só com entradas `failed` - 1 único provider elegível → ainda popula `results` com 1 entrada (fan_out não vira
+      caminho sequencial de 1 item — consistência de shape importa mais que atalho) - timeout por provider (mesmo mecanismo de `AbortController` de `executeParallel`,
+      `effectiveTimeout = explicitTimeoutMs ?? provider.timeoutMs ?? defaultTimeoutMs`) —
+      provider que estoura vira uma entrada `failed` com código de timeout/abort, os
+      outros continuam normalmente (SEM cancelar por causa do timeout de um vizinho —
+      diferença chave pra `priority_race`, que cancela os "perdedores" quando o vencedor
+      chega; aqui não tem "perdedor") - `AttemptLog`/`Observer.onAttempt` continua disparando por provider, igual às outras
+      strategies (reusar `emitAttempt`)
 - [x] Adicionar branch em `Router.execute`: `if (strategy === 'fan_out') { ... return
-      executeFanOut(...) }`, paralelo ao branch existente de `priority_race` — sem
+executeFanOut(...) }`, paralelo ao branch existente de `priority_race` — sem
       `targets.length > 1` como condição (fan_out com 1 provider ainda popula `results`,
       diferente de `priority_race` que só entra no caminho paralelo com >1)
 - [x] `geo-rule.test.ts`/`geo-rule.ts`: NÃO precisa mudar — `fan_out` como
@@ -67,7 +61,7 @@ Todas as 6 strategies atuais (round_robin/load_balance/most_fast/failover/geo_ru
       `docs/guide/strategies.md` com o ADR completo do porquê. Novo tutorial
       `docs/tutorials/allfleet.md` (agregação de frota de dois sistemas, dedup por placa —
       o caso de uso real que motivou tudo isso) registrado no nav do VitePress; `pnpm run
-      build` da doc confirmado sem link quebrado
+build` da doc confirmado sem link quebrado
 - [ ] (fora do escopo desta task, fica registrado como próximo passo) Depois de publicado:
       usar em `geohub/packages/veiculo-client` (task-231 lá) — `listarVeiculos` passa a poder
       usar `strategy: 'fan_out'` e o merge/dedup (hoje em `merge-utils.ts`) vira lógica de
