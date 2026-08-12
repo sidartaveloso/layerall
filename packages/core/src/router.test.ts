@@ -441,3 +441,106 @@ describe('Router priority_race', () => {
     expect(cancelled.some(c => c.reason === 'aborted')).toBe(true);
   });
 });
+
+describe('Router fan_out', () => {
+  const fanOutPolicy = (
+    providers: string[],
+    op: Partial<OperationPolicy> = {}
+  ): PolicyDocument => ({
+    tenants: {
+      default: {
+        providers,
+        operations: {
+          create: {
+            strategy: 'fan_out',
+            timeoutMs: 2000,
+            ...op,
+          },
+        },
+      },
+    },
+  });
+
+  const fanOutRouter = (providers: Record<string, Provider>, op: Partial<OperationPolicy> = {}) =>
+    new Router({ policy: fanOutPolicy(Object.keys(providers), op), providers });
+
+  const abortAwareProvider = (id: string, resolveMs: number, timeoutMs?: number): Provider => ({
+    id,
+    timeoutMs,
+    invoke: async ctx =>
+      new Promise<unknown>((resolve, reject) => {
+        const timer = setTimeout(() => resolve({ ok: true, provider: id }), resolveMs);
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(new Error('aborted'));
+        };
+        ctx.signal?.addEventListener('abort', onAbort, { once: true });
+        if (ctx.signal?.aborted) onAbort();
+      }),
+  });
+
+  it('waits for every provider and collects a succeeded entry for each', async () => {
+    const res = await fanOutRouter({
+      p1: mkProvider('p1'),
+      p2: mkProvider('p2'),
+      p3: mkProvider('p3'),
+    }).execute('create', basePayload);
+
+    expect(res.status).toBe('succeeded');
+    expect(res.attempts).toBe(3);
+    expect(res.provider).toBe('p1,p2,p3');
+    expect(res.results).toHaveLength(3);
+    expect(res.results?.map(r => r.provider)).toEqual(['p1', 'p2', 'p3']);
+    expect(res.results?.every(r => r.status === 'succeeded')).toBe(true);
+  });
+
+  it('is succeeded overall when at least one provider succeeds, mixing entries', async () => {
+    const res = await fanOutRouter({
+      p1: mkProvider('p1', 'fatal'),
+      p2: mkProvider('p2'),
+      p3: mkProvider('p3', 'fatal'),
+    }).execute('create', basePayload);
+
+    expect(res.status).toBe('succeeded');
+    const byProvider = Object.fromEntries((res.results ?? []).map(r => [r.provider, r]));
+    expect(byProvider.p1.status).toBe('failed');
+    expect(byProvider.p1.error).toBeDefined();
+    expect(byProvider.p2.status).toBe('succeeded');
+    expect(byProvider.p3.status).toBe('failed');
+  });
+
+  it('is failed overall (all_failed) when every provider fails', async () => {
+    const res = await fanOutRouter({
+      p1: mkProvider('p1', 'fatal'),
+      p2: mkProvider('p2', 'fatal'),
+    }).execute('create', basePayload);
+
+    expect(res.status).toBe('failed');
+    expect(res.error?.code).toBe('all_failed');
+    expect(res.results).toHaveLength(2);
+    expect(res.results?.every(r => r.status === 'failed')).toBe(true);
+  });
+
+  it('still populates results with a single entry when there is only one eligible provider', async () => {
+    const res = await fanOutRouter({ p1: mkProvider('p1') }).execute('create', basePayload);
+
+    expect(res.status).toBe('succeeded');
+    expect(res.results).toHaveLength(1);
+    expect(res.results?.[0]).toMatchObject({ provider: 'p1', status: 'succeeded' });
+  });
+
+  it('does not cancel other providers when one of them times out', async () => {
+    const res = await fanOutRouter(
+      {
+        p1: abortAwareProvider('p1', 1000, 20),
+        p2: mkProvider('p2', 'ok', 5),
+      },
+      { timeoutMs: undefined }
+    ).execute('create', basePayload);
+
+    expect(res.status).toBe('succeeded');
+    const byProvider = Object.fromEntries((res.results ?? []).map(r => [r.provider, r]));
+    expect(byProvider.p1.status).toBe('failed');
+    expect(byProvider.p2.status).toBe('succeeded');
+  });
+});

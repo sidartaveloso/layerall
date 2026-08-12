@@ -75,6 +75,17 @@ export const priorityRace: Strategy = ctx => {
   return eligible.length > 0 ? eligible : null;
 };
 
+/**
+ * Fan out: returns every eligible provider; the router fires them all in
+ * parallel and waits for every outcome (no winner-takes-all, nothing is
+ * cancelled). Selection-wise this is identical to `priorityRace` — the
+ * difference lives entirely in how the `Router` consumes the array.
+ */
+export const fanOut: Strategy = ctx => {
+  const { eligible } = ctx;
+  return eligible.length > 0 ? eligible : null;
+};
+
 /** Geo rule: selects the providers of every region matching the payload coordinate. */
 export const geoRule: Strategy = ctx => {
   const geo = ctx.geo;
@@ -110,6 +121,7 @@ export const strategies: Record<StrategyName, Strategy> = {
   failover,
   geo_rule: geoRule,
   priority_race: priorityRace,
+  fan_out: fanOut,
 };
 
 function resolveWeight(p: Provider, weights: Record<string, number>): number {

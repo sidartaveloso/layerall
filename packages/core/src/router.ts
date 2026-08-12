@@ -1,5 +1,6 @@
 import type {
   CancelledReason,
+  FanOutEntry,
   Observer,
   OperationName,
   OperationPayload,
@@ -102,6 +103,19 @@ export class Router {
         targets,
         explicitTimeout,
         options.signal
+      );
+      this.observer?.onFinish?.(out);
+      return out;
+    }
+
+    if (strategy === 'fan_out') {
+      const explicitTimeout = options.timeoutMs ?? opPolicy.timeoutMs;
+      const out = await this.executeFanOut<TResult>(
+        operation,
+        requestId,
+        payload,
+        targets,
+        explicitTimeout
       );
       this.observer?.onFinish?.(out);
       return out;
@@ -363,6 +377,114 @@ export class Router {
       Math.round(performance.now() - startedAt),
       attempts
     );
+  }
+
+  /**
+   * Fires every target in parallel and waits for ALL of them to settle
+   * (success or failure) — unlike `executeParallel` (`priority_race`), no
+   * provider is ever cancelled because another one succeeded; there is no
+   * "winner". Each outcome becomes a `FanOutEntry` in `results`; the Router
+   * never merges the `result`s themselves, that stays the caller's job.
+   */
+  private async executeFanOut<TResult>(
+    operation: OperationName,
+    requestId: string,
+    payload: OperationPayload,
+    targets: Provider[],
+    explicitTimeoutMs: number | undefined
+  ): Promise<OperationResult<TResult>> {
+    const startedAt = performance.now();
+
+    const entries = await Promise.all(
+      targets.map(async (provider): Promise<FanOutEntry<TResult>> => {
+        const effectiveTimeout = explicitTimeoutMs ?? provider.timeoutMs ?? this.defaultTimeoutMs;
+        const controller = new AbortController();
+        const timer =
+          effectiveTimeout > 0 ? setTimeout(() => controller.abort(), effectiveTimeout) : undefined;
+
+        const start = performance.now();
+        try {
+          const result = await provider.invoke({
+            operation,
+            requestId,
+            payload,
+            signal: controller.signal,
+          });
+          const latencyMs = Math.round(performance.now() - start);
+          this.emitAttempt(
+            provider.id,
+            1,
+            true,
+            latencyMs,
+            false,
+            undefined,
+            undefined,
+            requestId,
+            operation
+          );
+          return { provider: provider.id, status: 'succeeded', result: result as TResult, latencyMs };
+        } catch (err) {
+          const latencyMs = Math.round(performance.now() - start);
+          const transient = isTransient(err);
+          this.emitAttempt(
+            provider.id,
+            1,
+            false,
+            latencyMs,
+            transient,
+            errMsg(err),
+            errCode(err),
+            requestId,
+            operation
+          );
+          return {
+            provider: provider.id,
+            status: 'failed',
+            error: { code: errCode(err), message: errMsg(err), transient, provider: provider.id },
+            latencyMs,
+          };
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      })
+    );
+
+    const providerIds = targets.map(p => p.id).join(',');
+    const totalMs = Math.round(performance.now() - startedAt);
+    const attempts = entries.length;
+    const algumSucesso = entries.some(e => e.status === 'succeeded');
+
+    if (!algumSucesso) {
+      return {
+        id: uid('op'),
+        requestId,
+        provider: providerIds || '—',
+        operation,
+        status: 'failed',
+        results: entries,
+        latencyMs: totalMs,
+        attempts,
+        providerReceipt: buildReceipt(providerIds || 'none', requestId),
+        error: {
+          code: 'all_failed',
+          message: 'todos os provedores falharam',
+          transient: false,
+          provider: providerIds || '—',
+        },
+      };
+    }
+
+    return {
+      id: uid('op'),
+      requestId,
+      provider: providerIds,
+      operation,
+      status: 'succeeded',
+      results: entries,
+      latencyMs: totalMs,
+      attempts,
+      providerReceipt: buildReceipt(providerIds, requestId),
+    };
   }
 
   private emitCancelled(

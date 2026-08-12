@@ -1,6 +1,6 @@
 # Task 008 — nova strategy fan_out: dispara todos os providers e agrega TODOS os resultados (sem vencedor único)
 
-Status: in-progress
+Status: done
 Type: feat
 Assignee: sidartaveloso
 
@@ -10,15 +10,15 @@ Todas as 6 strategies atuais (round_robin/load_balance/most_fast/failover/geo_ru
 
 ## Tasks
 
-- [ ] `types.ts`: adicionar `'fan_out'` a `StrategyName`; novo tipo `FanOutEntry<TResult>` (
+- [x] `types.ts`: adicionar `'fan_out'` a `StrategyName`; novo tipo `FanOutEntry<TResult>` (
       `{ provider: string; status: 'succeeded' | 'failed'; result?: TResult; error?:
       OperationError; latencyMs: number }`); adicionar `results?: FanOutEntry<TResult>[]` em
       `OperationResult` — opcional, presente só quando a strategy é `fan_out`, sem quebrar o
       shape existente pras outras 6
-- [ ] `strategies.ts` (TDD, vermelho primeiro): `fanOut: Strategy` — mesma forma de
+- [x] `strategies.ts` (TDD, vermelho primeiro): `fanOut: Strategy` — mesma forma de
       `priorityRace` (devolve `eligible` inteiro, ou `null` se vazio); registrar em
       `strategies` record
-- [ ] `router.test.ts` (TDD, vermelho primeiro): novo método privado `executeFanOut` —
+- [x] `router.test.ts` (TDD, vermelho primeiro): novo método privado `executeFanOut` —
       dispara todos os `targets` em paralelo via `Promise.all` (NÃO `Promise.race`/cancela-o-
       resto como `executeParallel`), espera todos resolverem (sucesso OU falha), popula
       `results[]` com uma entrada por provider na ordem de `targets`. Casos a cobrir:
@@ -39,26 +39,27 @@ Todas as 6 strategies atuais (round_robin/load_balance/most_fast/failover/geo_ru
         chega; aqui não tem "perdedor")
       - `AttemptLog`/`Observer.onAttempt` continua disparando por provider, igual às outras
         strategies (reusar `emitAttempt`)
-- [ ] Adicionar branch em `Router.execute`: `if (strategy === 'fan_out') { ... return
+- [x] Adicionar branch em `Router.execute`: `if (strategy === 'fan_out') { ... return
       executeFanOut(...) }`, paralelo ao branch existente de `priority_race` — sem
       `targets.length > 1` como condição (fan_out com 1 provider ainda popula `results`,
       diferente de `priority_race` que só entra no caminho paralelo com >1)
-- [ ] `geo-rule.test.ts`/`geo-rule.ts`: NÃO precisa mudar — `fan_out` como
+- [x] `geo-rule.test.ts`/`geo-rule.ts`: NÃO precisa mudar — `fan_out` como
       `fallbackStrategy` dentro de `geo_rule` fica fora de escopo por ora (não há caso de uso
       motivador pra combinar os dois); documentar essa decisão explicitamente
       (`geoRule()` já lança `geo_bad_payload` se `fallbackStrategy === 'geo_rule'` — não
       precisa de guarda equivalente pra `fan_out`, mas vale um teste confirmando que
       `fan_out` como fallback funciona via delegação normal a `strategies.fan_out(ctx)`, já
       que o código existente já delega genericamente)
-- [ ] Rodar suíte completa (`pnpm --filter @layerall/core test`) — confirmar que as 56
+- [x] Rodar suíte completa (`pnpm --filter @layerall/core test`) — confirmar que as 56
       existentes continuam verdes, mais os casos novos
-- [ ] Atualizar `docs/guide/strategies.md` com a nova strategy (mesmo padrão das outras 6)
-- [ ] Changeset (`pnpm changeset`) — **minor** em `@layerall/core` (adiciona strategy nova +
+- [x] Atualizar `docs/guide/strategies.md` com a nova strategy (mesmo padrão das outras 6)
+- [x] Changeset (`pnpm changeset`) — **minor** em `@layerall/core` (adiciona strategy nova +
       campo opcional em `OperationResult`, não quebra nada existente)
-- [ ] Depois de publicado: usar em `geohub/packages/veiculo-client` (task-231 lá) —
-      `listarVeiculos` passa a poder usar `strategy: 'fan_out'` e o merge/dedup (hoje em
-      `merge-utils.ts`) vira lógica de CONSUMIDOR sobre `resultado.results`, não
-      responsabilidade do Router (a lib não sabe o que é "placa" — só agrega o envelope)
+- [ ] (fora do escopo desta task, fica registrado como próximo passo) Depois de publicado:
+      usar em `geohub/packages/veiculo-client` (task-231 lá) — `listarVeiculos` passa a poder
+      usar `strategy: 'fan_out'` e o merge/dedup (hoje em `merge-utils.ts`) vira lógica de
+      CONSUMIDOR sobre `resultado.results`, não responsabilidade do Router (a lib não sabe o
+      que é "placa" — só agrega o envelope)
 
 ## Notes
 

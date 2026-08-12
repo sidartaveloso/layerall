@@ -101,6 +101,33 @@ Dispara **todos os provedores elegíveis em paralelo** e retorna a primeira resp
 
 **Quando usar:** quando você quer a menor latência possível consultando todas as fontes ao mesmo tempo, aceitando o custo de chamar todas.
 
+## `fan_out`
+
+Dispara **todos os provedores elegíveis em paralelo** e espera **todos** resolverem (sucesso ou falha) — ao contrário de `priority_race`, nenhum provider é cancelado por causa de outro; não existe "vencedor".
+
+```ts
+{ "strategy": "fan_out", "timeoutMs": 4000 }
+```
+
+O resultado normal (`OperationResult.result`/`provider`) não faz sentido quando há vários providers — em vez disso, `OperationResult.results` traz um `FanOutEntry` por provider, na ordem da policy:
+
+```ts
+interface FanOutEntry<TResult> {
+  provider: string;
+  status: 'succeeded' | 'failed';
+  result?: TResult;
+  error?: OperationError;
+  latencyMs: number;
+}
+```
+
+- `OperationResult.status` é `'succeeded'` se **pelo menos um** provider teve sucesso, `'failed'` (código `all_failed`) só quando todos falham.
+- `OperationResult.provider` é a lista de ids dos providers disparados, separados por vírgula (ex.: `"pontual,sespes"`).
+- Timeout por provider: mesmo mecanismo do `priority_race` (`Provider.timeoutMs`/`timeoutMs` da operação) — mas um provider que estoura vira só uma entrada `failed` em `results`, sem afetar os outros.
+- O Router **não mescla** os `result`s de providers diferentes — isso é específico de domínio (ex.: dedup por chave de negócio) e fica por conta de quem chama, iterando `results`.
+
+**Quando usar:** quando a resposta certa é a **combinação** de várias fontes (ex.: "todos os veículos cadastrados nos dois sistemas"), não uma escolha entre elas. Se você precisa de UM resultado (mais rápido, mais confiável, primeiro disponível), use `priority_race`/`failover`/`most_fast` em vez disso.
+
 ## Combinando estratégias
 
 Você pode usar estratégias diferentes por operação na mesma policy:
