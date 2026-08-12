@@ -11,10 +11,10 @@ geoRule() delega o caso 'fallback' (regiões sobrepostas) pra strategies[fallbac
 ## Tasks
 
 - [x] `strategies.test.ts` (TDD, vermelho primeiro): `geoRule` com `fallbackStrategy:
-      'failover'` e regiões sobrepostas deve devolver o `pool` inteiro (array, ordem
+    'failover'` e regiões sobrepostas deve devolver o `pool` inteiro (array, ordem
       preservada), não só `pool[0]` — mirroring o que `priorityRace` já faz
 - [x] `strategies.ts`: no branch `case 'fallback'` de `geoRule`, tratar `fallback ===
-      'failover'` devolvendo `outcome.pool` diretamente em vez de delegar pra
+    'failover'` devolvendo `outcome.pool` diretamente em vez de delegar pra
       `strategies.failover(ctx)` (que devolve só `eligible[0]`)
 - [x] `router.test.ts` (integração, dentro de `describe('Router geo_rule')`): regiões
       sobrepostas com `fallbackStrategy: 'failover'`, provider do pool[0] falha (erro não
@@ -36,8 +36,8 @@ geoRule() delega o caso 'fallback' (regiões sobrepostas) pra strategies[fallbac
 
 - Causa raiz confirmada lendo o código-fonte (`packages/core/src/strategies.ts`,
   `geoRule`, branch `case 'fallback'`): delega pra `strategies[fallback]({ ...ctx, eligible:
-  outcome.pool })`; pra `fallback === 'failover'`, `strategies.failover` é `(ctx) =>
-  eligible[0] ?? null` — devolve só 1 `Provider`, nunca um array. O `Router.execute` só
+outcome.pool })`; pra `fallback === 'failover'`, `strategies.failover` é `(ctx) =>
+eligible[0] ?? null` — devolve só 1 `Provider`, nunca um array. O `Router.execute` só
   cascateia entre múltiplos `targets` quando a seleção devolve um array (compare com
   `priorityRace`, que devolve `eligible` inteiro).
 - O `Router` **já sabe** cascatear corretamente — o `for (const provider of targets)` em

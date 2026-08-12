@@ -32,12 +32,7 @@ string), sem quebrar o autocomplete dos nomes padrão nem o `@layerall/cli`.
 
 - [x] Generalizar `OperationName` (linha 4) usando o padrão de string extensível:
   ```ts
-  export type OperationName =
-    | 'create'
-    | 'send'
-    | 'status'
-    | 'cancel'
-    | (string & {});
+  export type OperationName = 'create' | 'send' | 'status' | 'cancel' | (string & {});
   ```
 - [x] Verificar propagação — todos os usos de `OperationName` já aceitam string
       arbitraria sem cast no core:
@@ -93,10 +88,10 @@ string), sem quebrar o autocomplete dos nomes padrão nem o `@layerall/cli`.
 **Major version** (`@layerall/core@2.0.0`) — mudança de contrato de tipos públicos
 (seguindo o precedente da task-004, que tratou ampliação de union como breaking):
 
-| Mudança                                                                 | Impacto                                                        |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `OperationName` deixa de ser union fechado e vira `... | (string & {})` | `Record<OperationName, ...>` e switch/pattern-match exaustivos quebram |
-| `Record<OperationName, X>` no código do consumidor                       | Precisa virar `Record<CanonicalOperation, X>` ou `Partial<...>` |
+| Mudança                                                | Impacto                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `OperationName` deixa de ser union fechado e vira `... | (string & {})`                                                  | `Record<OperationName, ...>` e switch/pattern-match exaustivos quebram |
+| `Record<OperationName, X>` no código do consumidor     | Precisa virar `Record<CanonicalOperation, X>` ou `Partial<...>` |
 
 `semantic-release` detecta automaticamente via conventional commits — usar
 `feat!:` ou `BREAKING CHANGE` no footer do commit.
