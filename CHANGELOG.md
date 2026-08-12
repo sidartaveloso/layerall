@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/sidartaveloso/layerall/compare/v2.0.1...v2.0.2) (2026-08-12)
+
+
+### Bug Fixes
+
+* **cli:** limpa dist/templates antes do cp para evitar assets duplicados no release ([a9b2a97](https://github.com/sidartaveloso/layerall/commit/a9b2a975ffe067459b6ac3435d392a231ac66348))
+
 ## [2.0.1](https://github.com/sidartaveloso/layerall/compare/v2.0.0...v2.0.1) (2026-08-12)
 
 
